@@ -421,6 +421,10 @@ def delete_run(run_id):
     s = load_store()
     s["runs"] = [r for r in s["runs"] if r["run_id"] != run_id]
     save_store(s)
+    # Delete all run directories on disk that belong to this run_id
+    for d in RUNS_DIR.glob(f"{run_id}*"):
+        if d.is_dir():
+            shutil.rmtree(d, ignore_errors=True)
     return jsonify({"ok": True})
 
 
@@ -482,7 +486,9 @@ def run_backtest():
     try:
         cmd = [bt, "--trader", str(tmp_path), "--dataset", dataset, "--run-id", run_id]
         if day:
-            cmd += ["--day", day]
+            # Use --day=VALUE format so negative numbers (e.g. -2) aren't
+            # misinterpreted as CLI flags by the argument parser
+            cmd += [f"--day={day}"]
         proc = subprocess.run(
             cmd, cwd=str(REPO_ROOT),
             capture_output=True, text=True, timeout=600,

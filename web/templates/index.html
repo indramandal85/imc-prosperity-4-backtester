@@ -469,8 +469,8 @@ html,body{background:var(--bg);color:var(--tx);font-family:var(--font);font-size
     </div>
     <div class="fg"><label class="fl">Run Name</label><input class="fctl" id="rname" placeholder="e.g. v2-market-maker"/></div>
     <div class="frow2">
-      <div class="fg"><label class="fl">Dataset</label><select class="fctl" id="ds-sel"><option value="round1">Round 1</option><option value="tutorial">Tutorial</option></select></div>
-      <div class="fg"><label class="fl">Day</label><select class="fctl" id="day-sel"><option value="">All days</option><option value="-2">Day -2</option><option value="-1">Day -1</option><option value="0" selected>Day 0</option></select></div>
+      <div class="fg"><label class="fl">Dataset</label><select class="fctl" id="ds-sel" onchange="updateDayOptions()"></select></div>
+      <div class="fg"><label class="fl">Day</label><select class="fctl" id="day-sel"></select></div>
     </div>
     <div class="pbar" id="pbar"><div class="pfill"></div></div>
     <div class="ebox" id="ebox"></div>
@@ -496,6 +496,7 @@ const S = {
   active: null,      // run_id whose OB/price/stat cards are shown
   cmp:    new Set(), // run_ids shown in PnL/pos overlay charts
   prod:   null,      // selected product (null = ALL PRODUCTS)
+  activeDays: null,  // null = all days shown; Set<number> when some days hidden
   tickIdx:0,
   playing:false,
   speed:  1,
@@ -541,16 +542,41 @@ const PROD_COLORS_DEF=["#1a7f37","#e07b00","#0550ae","#d62728","#9467bd","#8c564
   renderAll();
 })();
 
+// datasets cache: id → {id, days:[]}
+const DS_MAP = {};
+
 async function checkStatus(){
   const s=await api("/api/status").catch(()=>({}));
   document.getElementById("bt-st").innerHTML = s.ok
     ? `<span style="color:#1a7f37;font-size:11px">&#9679; Backtester ready</span>`
     : `<span style="color:#cf222e;font-size:11px" title="Run: make install">&#9888; Not found</span>`;
   if(s.datasets?.length){
+    s.datasets.forEach(d=>DS_MAP[d.id]=d);
     document.getElementById("ds-sel").innerHTML = s.datasets.map(d=>{
       const l=d.id.replace(/_/g," ").replace(/\b\w/g,c=>c.toUpperCase());
       return `<option value="${d.id}">${l}</option>`;
     }).join("");
+    updateDayOptions();
+  }
+}
+
+function updateDayOptions(){
+  const dsId = document.getElementById("ds-sel").value;
+  const ds   = DS_MAP[dsId];
+  const sel  = document.getElementById("day-sel");
+  // Always offer "All days" first
+  let html = `<option value="">All days</option>`;
+  if(ds?.days?.length){
+    // Sort numerically so days appear -2, -1, 0, 1 in order
+    const sorted=[...ds.days].sort((a,b)=>a-b);
+    sorted.forEach(d=>{
+      html += `<option value="${d}">Day ${d}</option>`;
+    });
+    // Default selection: last day (highest number) for the dataset
+    sel.innerHTML = html;
+    sel.value = String(sorted[sorted.length-1]);
+  } else {
+    sel.innerHTML = html;
   }
 }
 
@@ -568,6 +594,8 @@ function setActive(id){
   const ps=d?.products||[];
   // Keep null (ALL PRODUCTS) as null; keep specific product if valid, else pick first
   if(S.prod!==null && ps.length && !ps.includes(S.prod)) S.prod=ps[0];
+  // Reset day filter — show all days for this run
+  S.activeDays=null;
   S.tickIdx=0; stopPlay();
   const sl=document.getElementById("pbsl");
   sl.max=(d?.timestamps?.length||1)-1; sl.value=0;
@@ -643,11 +671,18 @@ function renderFilters(){
   document.getElementById("f-src").innerHTML = run
     ? `<button class="pill on">${esc((run.dataset||"dataset").toUpperCase())}</button>` : "";
 
-  // Day pills
+  // Day pills — show ALL days in the dataset (from DS_MAP), not just sampled days.
+  // Each pill is a toggle: click to hide/show that day across all charts.
   const fw=document.getElementById("f-day");
   if(d?.days){
+    // All unique days actually present in the run data
     const uniq=[...new Set(d.days)].sort((a,b)=>a-b);
-    fw.innerHTML=uniq.map(dy=>`<button class="pill on">DAY ${dy}</button>`).join("");
+    // If activeDays not yet initialised for this run, show all
+    if(!S.activeDays) S.activeDays=new Set(uniq);
+    fw.innerHTML=uniq.map(dy=>{
+      const on=S.activeDays.has(dy);
+      return `<button class="pill${on?" on":""}" onclick="toggleDay(${dy})" title="${on?"Click to hide":"Click to show"} Day ${dy}">DAY ${dy}</button>`;
+    }).join("");
   } else fw.innerHTML="";
 
   // Product pills
@@ -660,6 +695,40 @@ function renderFilters(){
         `<button class="pill${S.prod===p?" on":""}" onclick="selProd('${p}')">${esc(p)}</button>`
       ).join("");
   } else pw.innerHTML="";
+}
+
+function toggleDay(dy){
+  const d=S.data[S.active]; if(!d) return;
+  const allDays=[...new Set(d.days)];
+  // Initialise if needed
+  if(!S.activeDays) S.activeDays=new Set(allDays);
+  if(S.activeDays.has(dy)){
+    // Don't allow hiding the last visible day
+    if(S.activeDays.size<=1) return;
+    S.activeDays.delete(dy);
+  } else {
+    S.activeDays.add(dy);
+  }
+  renderFilters();
+  renderPriceChart();
+  renderPnlChart();
+  renderPosChart();
+  updateTickUI();
+}
+
+// Returns indices of the active run's sampled timestamps that belong to visible days
+function visibleMask(d){
+  if(!S.activeDays) return null; // null = show all
+  const allDays=[...new Set(d.days||[])];
+  // If all days are active, skip masking
+  if(S.activeDays.size>=allDays.length) return null;
+  return (d.days||[]).map(day=>S.activeDays.has(day));
+}
+
+// Apply mask to an array: replace hidden indices with null
+function applyMask(arr,mask){
+  if(!mask) return arr;
+  return arr.map((v,i)=>mask[i]?v:null);
 }
 
 function selProd(p){
@@ -708,9 +777,10 @@ function renderPriceChart(){
     renderLayerPills();
     return;
   }
-  const ts=d.timestamps;
+  const mask=visibleMask(d);
+  const ts=mask ? d.timestamps.filter((_,i)=>mask[i]) : d.timestamps;
   const shapes=[cursor(ts[S.tickIdx]||ts[0])];
-  Plotly.react(el, buildPriceTraces(d,p,ts), {
+  Plotly.react(el, buildPriceTraces(d,p,ts,mask), {
     ...PL, shapes,
     hovermode:"x unified",
     hoverdistance:50,
@@ -747,15 +817,15 @@ function renderPriceChart(){
   document.getElementById("res-info").textContent=`${ts.length} / ${ts.length} plotted`;
 }
 
-function buildPriceTraces(d,p,ts){
+function buildPriceTraces(d,p,ts,mask){
   const L=S.L;
   const tr=[];
-  const ask=d.ask_series?.[p]||[];
-  const bid=d.bid_series?.[p]||[];
-  const mid=d.mid_series?.[p]||[];
-  const mic=d.micro_series?.[p]||[];
+  const m=v=>mask?v.filter((_,i)=>mask[i]):v;
+  const ask=m(d.ask_series?.[p]||[]);
+  const bid=m(d.bid_series?.[p]||[]);
+  const mid=m(d.mid_series?.[p]||[]);
+  const mic=m(d.micro_series?.[p]||[]);
 
-  // connectgaps:false ensures null values create gaps instead of connections
   if((L.prices||L.ask) && ask.length)
     tr.push({x:ts,y:ask,mode:"lines",name:"ASK",connectgaps:false,
       line:{color:"#d62728",width:1.3},hovertemplate:"Ask:%{y:.2f}<extra></extra>"});
@@ -775,9 +845,11 @@ function buildPriceTraces(d,p,ts){
       line:{color:"#9467bd",width:1},yaxis:"y2",hovertemplate:"Spread:%{y:.2f}<extra></extra>"});
   }
 
-  const buys =(d.trades||[]).filter(t=>t.symbol===p&&t.side==="buy");
-  const sells=(d.trades||[]).filter(t=>t.symbol===p&&t.side==="sell");
-  // hoverinfo:"skip" removes buy/sell from the unified tooltip — shown via custom pfh panel instead
+  // Filter fills to only visible days
+  const visTs=mask?new Set(ts):null;
+  const inView=t=>!visTs||visTs.has(t.gts);
+  const buys =(d.trades||[]).filter(t=>t.symbol===p&&t.side==="buy"&&inView(t));
+  const sells=(d.trades||[]).filter(t=>t.symbol===p&&t.side==="sell"&&inView(t));
   if(L.buy_fills && buys.length)
     tr.push({x:buys.map(t=>t.gts),y:buys.map(t=>t.price),mode:"markers",name:"BUY FILL",
       marker:{symbol:"circle",size:9,color:"#1f77b4",line:{color:"#fff",width:1}},
@@ -818,20 +890,23 @@ function renderPnlChart(){
     return;
   }
 
+  const mask=visibleMask(d);
+  const mts=mask?d.timestamps.filter((_,i)=>mask[i]):d.timestamps;
+  const my=arr=>mask?arr.filter((_,i)=>mask[i]):arr;
   const traces=[];
 
   if(!p){
     // ALL PRODUCTS mode: total PnL + per-product lines for active run
     if(d.total_pnl?.length){
-      traces.push({x:d.timestamps,y:d.total_pnl,mode:"lines",name:"TOTAL",connectgaps:true,
+      traces.push({x:mts,y:my(d.total_pnl),mode:"lines",name:"TOTAL",connectgaps:true,
         line:{color:"#111",width:2.5},fill:"tozeroy",fillcolor:"rgba(0,0,0,0.04)",
         hovertemplate:"<b>Total</b>: %{y:.2f}<extra></extra>"});
     }
     (d.products||[]).forEach((prod,i)=>{
-      const y=d.pnl_series?.[prod]||[];
+      const y=my(d.pnl_series?.[prod]||[]);
       if(!y.length) return;
       const col=PROD_COLORS_DEF[i%PROD_COLORS_DEF.length];
-      traces.push({x:d.timestamps,y,mode:"lines",name:prod.replace(/_/g," "),connectgaps:true,
+      traces.push({x:mts,y,mode:"lines",name:prod.replace(/_/g," "),connectgaps:true,
         line:{color:col,width:1.8},
         hovertemplate:`<b>${esc(prod.replace(/_/g," "))}</b>: %{y:.2f}<extra></extra>`});
     });
@@ -842,9 +917,12 @@ function renderPnlChart(){
       const run=S.runs.find(r=>r.run_id===id);
       const rd=S.data[id];
       if(!run||!rd) return;
-      const y=rd.pnl_series?.[p]||[];
+      const rmask=visibleMask(rd);
+      const rts=rmask?rd.timestamps.filter((_,i)=>rmask[i]):rd.timestamps;
+      const ry=arr=>rmask?arr.filter((_,i)=>rmask[i]):arr;
+      const y=ry(rd.pnl_series?.[p]||[]);
       if(!y.length) return;
-      traces.push({x:rd.timestamps,y,mode:"lines",name:run.name,connectgaps:true,
+      traces.push({x:rts,y,mode:"lines",name:run.name,connectgaps:true,
         line:{color:run.color,width:2},
         hovertemplate:`<b>${esc(run.name)}</b>: %{y:.2f}<extra></extra>`});
     });
@@ -856,7 +934,7 @@ function renderPnlChart(){
     return;
   }
 
-  const ts0=d.timestamps||[];
+  const ts0=mts||[];
   const shapes=ts0.length?[cursor(ts0[S.tickIdx]||ts0[0])]:[];
 
   Plotly.react(el,traces,{...PL,shapes,showlegend:false,
@@ -882,15 +960,18 @@ function renderPosChart(){
     return;
   }
 
+  const mask=visibleMask(d);
+  const mts=mask?d.timestamps.filter((_,i)=>mask[i]):d.timestamps;
+  const my=arr=>mask?arr.filter((_,i)=>mask[i]):arr;
   const traces=[];
 
   if(!p){
     // ALL PRODUCTS: per-product positions for active run
     (d.products||[]).forEach((prod,i)=>{
-      const pos=d.pos_series?.[prod]||[];
+      const pos=my(d.pos_series?.[prod]||[]);
       if(!pos.length) return;
       const col=PROD_COLORS_DEF[i%PROD_COLORS_DEF.length];
-      traces.push({x:d.timestamps,y:pos,mode:"lines",name:prod.replace(/_/g," "),
+      traces.push({x:mts,y:pos,mode:"lines",name:prod.replace(/_/g," "),
         line:{color:col,width:1.8},fill:"tozeroy",fillcolor:rgba(col,.08),
         hovertemplate:`<b>${esc(prod.replace(/_/g," "))}</b>: %{y}<extra></extra>`});
     });
@@ -901,9 +982,12 @@ function renderPosChart(){
       const run=S.runs.find(r=>r.run_id===id);
       const rd=S.data[id];
       if(!run||!rd) return;
-      const pos=rd.pos_series?.[p]||[];
+      const rmask=visibleMask(rd);
+      const rts=rmask?rd.timestamps.filter((_,i)=>rmask[i]):rd.timestamps;
+      const ry=arr=>rmask?arr.filter((_,i)=>rmask[i]):arr;
+      const pos=ry(rd.pos_series?.[p]||[]);
       if(!pos.length) return;
-      traces.push({x:rd.timestamps,y:pos,mode:"lines",name:run.name,
+      traces.push({x:rts,y:pos,mode:"lines",name:run.name,
         line:{color:run.color,width:1.8},fill:"tozeroy",fillcolor:rgba(run.color,.07),
         hovertemplate:`<b>${esc(run.name)}</b>: %{y}<extra></extra>`});
     });
@@ -915,7 +999,7 @@ function renderPosChart(){
     return;
   }
 
-  const ts0=d.timestamps||[];
+  const ts0=mts||[];
   const shapes=ts0.length?[cursor(ts0[S.tickIdx]||ts0[0])]:[];
 
   Plotly.react(el,traces,{...PL,shapes,showlegend:traces.length>1,
