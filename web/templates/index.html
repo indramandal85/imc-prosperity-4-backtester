@@ -1,0 +1,1259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>IMC Prosperity — Local Backtester</title>
+<script src="https://cdn.plot.ly/plotly-2.30.0.min.js" crossorigin="anonymous"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f0f2f5;--card:#fff;--bdr:#e1e4e8;--bdr2:#d0d7de;
+  --tx:#24292f;--mt:#57606a;--lbl:#6e7781;
+  --green:#1a7f37;--red:#cf222e;--blue:#0550ae;
+  --pill:#24292f;--pillt:#fff;
+  --font:"Segoe UI",-apple-system,system-ui,sans-serif;
+  --mono:"SF Mono","Fira Code",Consolas,monospace;
+  --r:8px;
+}
+html,body{background:var(--bg);color:var(--tx);font-family:var(--font);font-size:13px;line-height:1.5;min-height:100%}
+
+/* ── Sticky header ─────────────────────────────────────────────────────────── */
+.sticky{position:sticky;top:0;z-index:400;background:var(--bg);
+  border-bottom:1px solid var(--bdr);box-shadow:0 1px 6px rgba(0,0,0,.07)}
+.sticky-inner{max-width:1480px;margin:0 auto;padding:8px 18px 7px}
+.hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.hdr h1{font-size:18px;font-weight:700;letter-spacing:-.3px}
+.hdr-r{display:flex;gap:8px;align-items:center}
+#bt-st{font-size:11px}
+.up-btn{background:var(--pill);color:#fff;border:none;border-radius:6px;
+  padding:5px 13px;font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:5px}
+.up-btn:hover{opacity:.82}
+
+/* ── Playback ──────────────────────────────────────────────────────────────── */
+.pb{display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+  background:var(--card);border:1px solid var(--bdr);border-radius:var(--r);padding:7px 12px}
+.pb-btns{display:flex;align-items:center;gap:3px;flex-shrink:0}
+.pbb{background:#f6f8fa;border:1px solid var(--bdr2);border-radius:5px;
+  padding:3px 8px;font-size:13px;cursor:pointer;color:var(--tx);line-height:1.2}
+.pbb:hover{background:#e9ecef}
+.spds{display:flex;gap:2px;margin-left:3px}
+.spd{background:transparent;border:1px solid var(--bdr);border-radius:4px;
+  padding:2px 6px;font-size:11px;font-weight:600;cursor:pointer;color:var(--mt)}
+.spd.on{background:var(--pill);color:#fff;border-color:var(--pill)}
+.pbsl{flex:1;min-width:140px;accent-color:var(--pill);cursor:pointer}
+.pb-inf{display:flex;align-items:center;gap:12px;font-size:11px;font-weight:600;
+  color:var(--mt);flex-shrink:0;white-space:nowrap}
+.pb-inf b{color:var(--tx)}
+.gt-row{display:flex;align-items:center;gap:3px;font-size:11px;color:var(--mt)}
+.gt-inp{width:70px;padding:2px 5px;border:1px solid var(--bdr);border-radius:4px;font-size:11px}
+.gt-go{padding:2px 7px;background:#f6f8fa;border:1px solid var(--bdr);border-radius:4px;font-size:10px;font-weight:600;cursor:pointer}
+
+/* ── Body ──────────────────────────────────────────────────────────────────── */
+.body{max-width:1480px;margin:0 auto;padding:12px 18px 40px}
+.card{background:var(--card);border:1px solid var(--bdr);border-radius:var(--r)}
+
+/* ── Stat cards ────────────────────────────────────────────────────────────── */
+.scrow{display:grid;grid-template-columns:repeat(5,1fr);gap:9px;margin-bottom:11px}
+@media(max-width:900px){.scrow{grid-template-columns:repeat(3,1fr)}}
+.sc{background:var(--card);border:1px solid var(--bdr);border-radius:var(--r);padding:11px 14px}
+.slbl{font-size:10px;font-weight:700;letter-spacing:.7px;color:var(--lbl);text-transform:uppercase}
+.sval{font-size:19px;font-weight:700;margin:4px 0 1px;letter-spacing:-.3px}
+.ssub{font-size:11px;color:var(--mt)}
+.pos{color:var(--green)}.neg{color:var(--red)}.neu{color:var(--tx)}
+
+/* ── Filters ───────────────────────────────────────────────────────────────── */
+.fc{margin-bottom:11px;padding:13px 14px}
+.fc-top{display:flex;justify-content:space-between;margin-bottom:9px}
+.fc-hd{font-size:13px;font-weight:600}
+.fc-sub{font-size:11px;color:var(--mt)}
+.tracked{font-size:11px;font-weight:700;color:var(--mt)}
+.frow{display:flex;align-items:center;gap:7px;margin-bottom:6px;flex-wrap:wrap}
+.frow:last-child{margin-bottom:0}
+.flbl{font-size:10px;font-weight:700;letter-spacing:.5px;color:var(--lbl);
+  text-transform:uppercase;min-width:62px;flex-shrink:0}
+.pill{display:inline-block;padding:4px 12px;border-radius:20px;font-size:11px;font-weight:600;
+  letter-spacing:.3px;border:1px solid var(--bdr2);background:var(--card);
+  color:var(--mt);cursor:pointer;text-transform:uppercase;white-space:nowrap;transition:all .1s}
+.pill:hover{border-color:var(--tx);color:var(--tx)}
+.pill.on{background:var(--pill);border-color:var(--pill);color:var(--pillt)}
+
+/* ── Two-column main layout ────────────────────────────────────────────────── */
+.grid2{display:grid;grid-template-columns:1fr 330px;gap:11px;align-items:start}
+@media(max-width:1100px){.grid2{grid-template-columns:1fr}}
+
+/* ── Left column: all charts stacked ───────────────────────────────────────── */
+.lcol{display:flex;flex-direction:column;gap:11px}
+
+/* Price card */
+.pcrd{padding:0;overflow:hidden}
+.ptop{display:flex;align-items:flex-start;gap:8px;padding:9px 13px 0;flex-wrap:wrap}
+.pttl{font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;
+  color:var(--lbl);flex-shrink:0;white-space:nowrap}
+.pleg{display:flex;gap:9px;flex-wrap:wrap;flex:1;align-items:center;font-size:10px;font-weight:600}
+.l-ask{color:#d62728}.l-mid{color:#333}.l-mic{color:#1f77b4}
+.l-bid{color:#2ca02c}.l-buy{color:#1f77b4}.l-sel{color:#ff7f0e}
+.pctrl{margin-left:auto;display:flex;align-items:center;gap:5px;flex-shrink:0}
+.res-grp{display:flex;border:1px solid var(--bdr2);border-radius:5px;overflow:hidden}
+.res-btn{padding:2px 9px;font-size:10px;font-weight:700;cursor:pointer;
+  background:transparent;border:none;color:var(--mt)}
+.res-btn.on{background:var(--pill);color:#fff}
+.icobtn{background:transparent;border:1px solid var(--bdr);border-radius:5px;
+  padding:2px 7px;font-size:10px;color:var(--mt);cursor:pointer}
+.icobtn:hover{background:#f6f8fa;color:var(--tx)}
+.icobtn.exp{background:var(--pill);color:#fff;border-color:var(--pill)}
+.layer-row{padding:7px 13px 9px;border-top:1px solid var(--bdr);display:flex;gap:4px;flex-wrap:wrap}
+.lp{padding:3px 9px;border-radius:20px;font-size:10px;font-weight:700;letter-spacing:.3px;
+  border:1px solid var(--bdr2);background:var(--card);color:var(--mt);
+  cursor:pointer;text-transform:uppercase;user-select:none;transition:all .1s}
+.lp:hover{border-color:#888;color:var(--tx)}
+.lp.on{background:var(--pill);border-color:var(--pill);color:#fff}
+
+/* Chart cards (PnL, Position) */
+.ccrd{padding:0;overflow:hidden}
+.chd{display:flex;align-items:center;gap:8px;padding:9px 14px;border-bottom:1px solid var(--bdr);flex-wrap:wrap}
+.cttl{font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--lbl)}
+.csub{font-size:10px;color:var(--mt)}
+.cleg{display:flex;gap:9px;flex:1;flex-wrap:wrap}
+.cli{display:flex;align-items:center;gap:4px;font-size:11px;font-weight:600;white-space:nowrap}
+.clidot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+.cctrl{margin-left:auto}
+.cbody{padding:6px 14px 10px}
+
+/* ── Right column ──────────────────────────────────────────────────────────── */
+.rcol{display:flex;flex-direction:column;gap:10px}
+
+/* Strategy */
+.scrd{padding:0;overflow:hidden}
+.phd{display:flex;align-items:center;justify-content:space-between;
+  padding:8px 13px;border-bottom:1px solid var(--bdr)}
+.phd-t{font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--lbl)}
+.slist{max-height:220px;overflow-y:auto}
+.si{display:flex;align-items:center;gap:7px;padding:7px 11px;
+  border-bottom:1px solid var(--bdr);cursor:pointer;transition:background .1s}
+.si:last-child{border-bottom:none}.si:hover{background:#f6f8fa}.si.cur{background:#f6f8fa}
+.sidot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+.siname{flex:1;font-size:12px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.sipnl{font-size:11px;font-weight:700;flex-shrink:0}
+.cmpbtn{padding:2px 8px;font-size:10px;font-weight:700;border-radius:4px;cursor:pointer;
+  border:1px solid var(--bdr2);background:var(--card);color:var(--mt);flex-shrink:0}
+.cmpbtn.on{background:#dafbe1;border-color:var(--green);color:var(--green)}
+.delbtn{background:transparent;border:none;cursor:pointer;font-size:14px;color:var(--mt);
+  line-height:1;padding:0 2px;flex-shrink:0;transition:color .1s}
+.delbtn:hover{color:var(--red)}
+.shint{font-size:10px;color:var(--mt);padding:5px 13px;border-top:1px solid var(--bdr);font-style:italic}
+.nostrat{padding:16px 13px;font-size:11px;color:var(--mt);text-align:center}
+
+/* Order book */
+.obcrd{padding:0;overflow:hidden}
+.obhd{display:flex;align-items:center;justify-content:space-between;padding:8px 13px;border-bottom:1px solid var(--bdr)}
+.obttl{font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--lbl)}
+.obspr{font-size:11px;font-weight:700;color:var(--mt)}
+.obtbl{width:100%;border-collapse:collapse;font-size:12px;font-variant-numeric:tabular-nums}
+.obtbl td{padding:3px 12px;white-space:nowrap}
+.ask-r td:first-child{text-align:right;color:var(--red)}.ask-r td:last-child{color:var(--red);font-weight:700}
+.bid-r td:first-child{color:var(--green);font-weight:700}.bid-r td:last-child{text-align:right;color:var(--green)}
+.mid-r td{text-align:center;font-size:11px;color:var(--mt);padding:2px 12px;background:#f8f9fa;font-weight:600}
+.obar{height:10px;border-radius:2px;min-width:3px}.obar.a{background:rgba(207,34,46,.2)}.obar.b{background:rgba(26,127,55,.2);margin-left:auto}
+
+/* Market pressure */
+.mpwrap{padding:9px 13px 10px;border-top:1px solid var(--bdr)}
+.mprow{display:flex;align-items:center;gap:6px;margin-bottom:4px}
+.mplbl{font-size:10px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--mt)}
+.mppct{font-size:12px;font-weight:700;margin-left:auto}
+.mptrack{height:7px;border-radius:4px;background:linear-gradient(to right,#2ca02c,#d62728);position:relative}
+.mpmark{position:absolute;top:-3px;width:12px;height:12px;border-radius:50%;
+  background:#fff;border:2px solid #333;transform:translateX(-50%);transition:left .25s}
+.mpends{display:flex;justify-content:space-between;font-size:9px;color:var(--mt);margin-top:2px;font-weight:600;text-transform:uppercase}
+
+/* Product summary */
+.pscrd{padding:0;overflow:hidden}
+.psgrid{display:grid;grid-template-columns:1fr 1fr;border-top:1px solid var(--bdr)}
+.pscell{padding:8px 13px;border-right:1px solid var(--bdr);border-bottom:1px solid var(--bdr)}
+.pscell:nth-child(2n){border-right:none}
+.pscell:nth-last-child(-n+2){border-bottom:none}
+.pslbl{font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--lbl);margin-bottom:2px}
+.psval{font-size:13px;font-weight:700}
+
+/* Market dynamics */
+.mdcrd{padding:0;overflow:hidden}
+.mdrow{display:flex;align-items:center;gap:7px;padding:7px 13px;border-bottom:1px solid var(--bdr)}
+.mdrow:last-child{border-bottom:none}
+.mdlbl{font-size:10px;font-weight:700;text-transform:uppercase;color:var(--lbl);min-width:125px}
+.mdtrack{flex:1;height:5px;background:#f0f2f5;border-radius:3px;overflow:hidden}
+.mdfill{height:100%;border-radius:3px;background:#0550ae;transition:width .25s}
+.mdfill.s{background:#bc4c00}
+.mdval{font-size:11px;font-weight:700;text-align:right;min-width:78px;white-space:nowrap}
+
+/* ── Summary table ─────────────────────────────────────────────────────────── */
+.sumcrd{margin-top:11px;padding:0;overflow:hidden}
+.sumhd{display:flex;align-items:center;gap:7px;padding:9px 15px;border-bottom:1px solid var(--bdr)}
+.sumico{font-size:14px;color:var(--mt)}
+.sumttl{font-size:12px;font-weight:700}
+.sumtbl{width:100%;border-collapse:collapse}
+.sumtbl th{padding:7px 15px;text-align:left;font-size:10px;font-weight:700;
+  letter-spacing:.5px;text-transform:uppercase;color:var(--lbl);
+  background:#f8f9fa;border-bottom:1px solid var(--bdr);white-space:nowrap}
+.sumtbl td{padding:8px 15px;border-bottom:1px solid var(--bdr);font-size:12px;white-space:nowrap}
+.sumtbl tbody tr:last-child td{font-weight:700;background:#fafbfc}
+.sumtbl tr:hover td{background:#f6f8fa}
+.sumtbl tbody tr:last-child:hover td{background:#fafbfc}
+
+/* ── Modal ─────────────────────────────────────────────────────────────────── */
+.ov{position:fixed;inset:0;background:rgba(0,0,0,.48);backdrop-filter:blur(3px);
+  display:flex;align-items:center;justify-content:center;z-index:1000;
+  opacity:0;pointer-events:none;transition:opacity .18s}
+.ov.open{opacity:1;pointer-events:all}
+.modal{background:#fff;border:1px solid var(--bdr);border-radius:12px;padding:24px;
+  width:470px;max-width:95vw;transform:translateY(10px);transition:transform .18s;
+  box-shadow:0 10px 36px rgba(0,0,0,.14)}
+.ov.open .modal{transform:translateY(0)}
+.mttl{font-size:14px;font-weight:700;margin-bottom:16px}
+.fg{margin-bottom:12px}
+.fl{font-size:11px;font-weight:600;color:var(--mt);margin-bottom:4px;display:block}
+.fctl{width:100%;padding:7px 10px;border:1px solid var(--bdr2);border-radius:6px;
+  color:var(--tx);font-size:13px;font-family:var(--font);background:#fff}
+.fctl:focus{outline:none;border-color:var(--blue)}
+.frow2{display:flex;gap:9px}.frow2 .fg{flex:1}
+.dz{border:2px dashed var(--bdr2);border-radius:7px;padding:20px;text-align:center;
+  cursor:pointer;color:var(--mt);background:#fafbfc;transition:all .15s}
+.dz:hover,.dz.drag{border-color:var(--blue);color:var(--blue);background:#f0f6ff}
+.dzico{font-size:24px;margin-bottom:4px}
+.dzh{font-size:11px;margin-top:3px}
+.mft{display:flex;gap:7px;margin-top:18px;justify-content:flex-end}
+.bcnl{padding:5px 13px;border-radius:6px;border:1px solid var(--bdr2);
+  background:#f6f8fa;color:var(--tx);font-size:13px;cursor:pointer}
+.brun{padding:5px 16px;border-radius:6px;border:none;background:var(--pill);
+  color:#fff;font-size:13px;font-weight:600;cursor:pointer}
+.brun:disabled{opacity:.5;cursor:not-allowed}
+.pbar{height:3px;border-radius:2px;background:#e9ecef;margin-top:8px;overflow:hidden;display:none}
+.pbar.on{display:block}
+.pfill{height:100%;background:var(--blue);width:30%;border-radius:2px;
+  animation:pa 1.4s ease-in-out infinite}
+@keyframes pa{0%{margin-left:-30%;width:30%}50%{width:50%}100%{margin-left:110%;width:30%}}
+.ebox{background:#fff5f5;border:1px solid #fca5a5;border-radius:5px;padding:8px 10px;
+  font-family:var(--mono);font-size:11px;color:var(--red);white-space:pre-wrap;margin-top:8px;display:none}
+.ebox.on{display:block}
+
+/* misc */
+.empty{display:flex;align-items:center;justify-content:center;color:var(--mt);font-size:12px}
+::-webkit-scrollbar{width:5px;height:5px}::-webkit-scrollbar-thumb{background:var(--bdr2);border-radius:3px}
+
+/* ── Own-fills hover panel (custom overlay for buy/sell near cursor) ─────── */
+#pfh{position:fixed;pointer-events:none;z-index:2000;display:none;
+  background:#fff;border:1px solid var(--bdr2);border-radius:7px;
+  box-shadow:0 4px 18px rgba(0,0,0,.13);padding:5px 12px 8px;
+  font-size:12px;min-width:155px;max-width:230px}
+.fh-hdr{font-size:9px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;
+  color:var(--lbl);border-top:1px solid var(--bdr);padding-top:5px;margin-top:3px;margin-bottom:3px}
+.fh-row{display:flex;justify-content:space-between;align-items:center;
+  gap:14px;padding:1px 0;font-size:11px}
+.fh-buy{color:#1f77b4;font-weight:700}.fh-sell{color:#e07b00;font-weight:700}
+.fh-qty{color:var(--tx);font-weight:600;white-space:nowrap}
+</style>
+</head>
+<body>
+
+<!-- ═══ STICKY: Header + Playback ═════════════════════════════════════════════ -->
+<div class="sticky">
+<div class="sticky-inner">
+  <div class="hdr">
+    <h1>Dashboard</h1>
+    <div class="hdr-r">
+      <span id="bt-st"></span>
+      <button class="up-btn" onclick="openModal()">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Upload Algorithm
+      </button>
+    </div>
+  </div>
+  <div class="pb">
+    <div class="pb-btns">
+      <button class="pbb" onclick="skipBack()">&#9646;&#9664;</button>
+      <button class="pbb" id="play-btn" onclick="togglePlay()">&#9654;</button>
+      <button class="pbb" onclick="skipFwd()">&#9654;&#9646;</button>
+      <div class="spds">
+        <button class="spd on" data-s="1"  onclick="setSpeed(1)">1x</button>
+        <button class="spd"    data-s="2"  onclick="setSpeed(2)">2x</button>
+        <button class="spd"    data-s="5"  onclick="setSpeed(5)">5x</button>
+        <button class="spd"    data-s="10" onclick="setSpeed(10)">10x</button>
+        <button class="spd"    data-s="20" onclick="setSpeed(20)">20x</button>
+      </div>
+    </div>
+    <input type="range" class="pbsl" id="pbsl" min="0" max="0" value="0" oninput="onSlider(+this.value)"/>
+    <div class="pb-inf">
+      <span>TICK <b id="t-tick">0</b>/<b id="t-tot">0</b></span>
+      <span>TS:<b id="t-ts">0</b> (D<b id="t-day">0</b>)</span>
+      <div class="gt-row">Go to TS
+        <input class="gt-inp" id="gt-inp" type="number" placeholder="0"
+               onkeydown="if(event.key==='Enter')gotoTs(+this.value)"/>
+        <button class="gt-go" onclick="gotoTs(+document.getElementById('gt-inp').value)">GO</button>
+      </div>
+      <span id="t-pct">0%</span>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ═══ BODY ═══════════════════════════════════════════════════════════════════ -->
+<div class="body">
+
+<!-- Stat cards -->
+<div class="scrow">
+  <div class="sc"><div class="slbl">Total PnL</div><div class="sval neu" id="sc-tot">—</div><div class="ssub">Cumulative</div></div>
+  <div class="sc"><div class="slbl">Max Drawdown</div><div class="sval neg" id="sc-dd">—</div><div class="ssub">Peak-to-Trough</div></div>
+  <div class="sc"><div class="slbl" id="sc-plbl">Product PnL</div><div class="sval pos" id="sc-ppnl">—</div><div class="ssub">By Product</div></div>
+  <div class="sc"><div class="slbl">Position</div><div class="sval neu" id="sc-pos">—</div><div class="ssub">Current Inventory</div></div>
+  <div class="sc"><div class="slbl">Microprice</div><div class="sval neu" id="sc-micro">—</div><div class="ssub" id="sc-midsub">Mid: —</div></div>
+</div>
+
+<!-- Filters -->
+<div class="card fc">
+  <div class="fc-top">
+    <div><div class="fc-hd">Filters</div><div class="fc-sub">Reference source, day, and product</div></div>
+    <span class="tracked" id="tracked">0 TRACKED</span>
+  </div>
+  <div class="frow"><span class="flbl">SOURCE</span><div id="f-src"></div></div>
+  <div class="frow"><span class="flbl">DAY</span><div id="f-day"></div></div>
+  <div class="frow"><span class="flbl">PRODUCT</span><div id="f-prod"></div></div>
+</div>
+
+<!-- Two-column: left=charts, right=panels -->
+<div class="grid2">
+
+  <!-- LEFT COLUMN: Price + PnL + Position stacked -->
+  <div class="lcol">
+
+    <!-- Price & Liquidity -->
+    <div class="card pcrd" id="price-card">
+      <div class="ptop">
+        <div class="pttl">PRICE &amp; LIQUIDITY: <span id="pc-prod">—</span></div>
+        <div class="pleg">
+          <span class="l-ask">— ASK</span>
+          <span class="l-mid">— MID</span>
+          <span class="l-mic">— MICRO</span>
+          <span class="l-bid">— BID</span>
+          <span class="l-buy">&#9679; BUY FILL</span>
+          <span class="l-sel">&#9679; SELL FILL</span>
+        </div>
+        <div class="pctrl">
+          <span id="res-info" style="font-size:10px;color:var(--mt)"></span>
+          <div class="res-grp">
+            <button class="res-btn" id="sampled-btn" onclick="setRes('sampled')">SAMPLED</button>
+            <button class="res-btn on" id="full-btn"    onclick="setRes('full')">FULL</button>
+          </div>
+          <button class="icobtn" id="exp-price" onclick="toggleExp('price-chart','exp-price',300)">&#8663; EXPAND</button>
+        </div>
+      </div>
+      <div id="price-chart" style="padding:4px 13px 0;height:300px"></div>
+      <div class="layer-row" id="layer-row"></div>
+    </div>
+
+    <!-- PnL Performance -->
+    <div class="card ccrd">
+      <div class="chd">
+        <div class="cttl">PNL PERFORMANCE</div>
+        <div class="csub" id="pnl-sub">TOTAL · ALL PRODUCTS</div>
+        <div class="cleg" id="pnl-leg"></div>
+        <div class="cctrl"><button class="icobtn" id="exp-pnl" onclick="toggleExp('pnl-chart','exp-pnl',240)">&#8663; EXPAND</button></div>
+      </div>
+      <div class="cbody"><div id="pnl-chart" style="height:240px"></div></div>
+    </div>
+
+    <!-- Position -->
+    <div class="card ccrd">
+      <div class="chd">
+        <div class="cttl">POSITION: <span id="pos-ttl">—</span></div>
+        <div class="csub">NORMALIZED TIMESTAMPS</div>
+        <div class="cleg" id="pos-leg"></div>
+        <div class="cctrl"><button class="icobtn" id="exp-pos" onclick="toggleExp('pos-chart','exp-pos',240)">&#8663; EXPAND</button></div>
+      </div>
+      <div class="cbody"><div id="pos-chart" style="height:240px"></div></div>
+    </div>
+
+  </div><!-- /lcol -->
+
+  <!-- RIGHT COLUMN: panels -->
+  <div class="rcol">
+
+    <!-- Strategy Management -->
+    <div class="card scrd">
+      <div class="phd">
+        <span class="phd-t">Strategy Management</span>
+        <span id="strat-cnt" style="font-size:10px;color:var(--mt)">0 runs</span>
+      </div>
+      <div class="slist" id="slist">
+        <div class="nostrat">Upload an algorithm to get started.</div>
+      </div>
+      <div class="shint">Click a strategy to view it. Use Compare to overlay on charts.</div>
+    </div>
+
+    <!-- Order Book -->
+    <div class="card obcrd">
+      <div class="obhd">
+        <span class="obttl">ORDER BOOK: <span id="ob-prod">—</span></span>
+        <span class="obspr">SPREAD: <span id="ob-spr">—</span></span>
+      </div>
+      <table class="obtbl" id="ob-tbl"></table>
+      <div class="mpwrap">
+        <div class="mprow">
+          <span>&#9889;</span><span class="mplbl">Market Pressure</span>
+          <span class="mppct" id="mp-pct">50.0%</span>
+        </div>
+        <div class="mptrack"><div class="mpmark" id="mp-mark" style="left:50%"></div></div>
+        <div class="mpends"><span>BIDS HEAVY</span><span>ASKS HEAVY</span></div>
+      </div>
+    </div>
+
+    <!-- Product Summary -->
+    <div class="card pscrd">
+      <div class="phd">
+        <span class="phd-t">PRODUCT SUMMARY: <span id="ps-prod">—</span></span>
+      </div>
+      <div class="psgrid">
+        <div class="pscell"><div class="pslbl">POSITION</div><div class="psval" id="ps-pos">0</div></div>
+        <div class="pscell"><div class="pslbl">PNL</div><div class="psval" id="ps-pnl">0</div></div>
+        <div class="pscell"><div class="pslbl">MID PRICE</div><div class="psval" id="ps-mid">0</div></div>
+        <div class="pscell"><div class="pslbl">SPREAD</div><div class="psval" id="ps-spr">0</div></div>
+      </div>
+    </div>
+
+    <!-- Market Dynamics -->
+    <div class="card mdcrd">
+      <div class="phd">
+        <span class="phd-t">MARKET DYNAMICS: <span id="md-prod">—</span></span>
+      </div>
+      <div class="mdrow">
+        <div class="mdlbl">VOLATILITY</div>
+        <div class="mdtrack"><div class="mdfill" id="vol-f" style="width:0%"></div></div>
+        <div class="mdval" id="vol-v">0.00 PTS</div>
+      </div>
+      <div class="mdrow">
+        <div class="mdlbl">TRADE MOMENTUM</div>
+        <div class="mdtrack"><div class="mdfill" id="mom-f" style="width:0%"></div></div>
+        <div class="mdval" id="mom-v">0 VOL</div>
+      </div>
+      <div class="mdrow">
+        <div class="mdlbl">SPREAD EFFICIENCY</div>
+        <div class="mdtrack"><div class="mdfill s" id="spr-f" style="width:0%"></div></div>
+        <div class="mdval" id="spr-v">0.000%</div>
+      </div>
+    </div>
+
+  </div><!-- /rcol -->
+</div><!-- /grid2 -->
+
+<!-- Day Breakdown Summary -->
+<div class="card sumcrd">
+  <div class="sumhd">
+    <span class="sumico">&#9646;&#9646;</span>
+    <span class="sumttl" id="sum-ttl">Day Breakdown Summary</span>
+  </div>
+  <div style="overflow-x:auto"><table class="sumtbl" id="sum-tbl"></table></div>
+</div>
+
+</div><!-- /body -->
+
+<!-- ═══ UPLOAD MODAL ═══════════════════════════════════════════════════════════ -->
+<div class="ov" id="modal">
+  <div class="modal">
+    <div class="mttl">Upload Algorithm</div>
+    <div class="fg">
+      <label class="fl">Trader File (.py)</label>
+      <div class="dz" id="dz" onclick="document.getElementById('fi').click()">
+        <div class="dzico">📂</div>
+        <div id="dz-lbl">Drop your trader.py here or click to browse</div>
+        <div class="dzh">Must contain <code>class Trader</code> with <code>run(state)</code></div>
+      </div>
+      <input type="file" id="fi" accept=".py" style="display:none" onchange="setFile(this.files[0])"/>
+    </div>
+    <div class="fg"><label class="fl">Run Name</label><input class="fctl" id="rname" placeholder="e.g. v2-market-maker"/></div>
+    <div class="frow2">
+      <div class="fg"><label class="fl">Dataset</label><select class="fctl" id="ds-sel"><option value="round1">Round 1</option><option value="tutorial">Tutorial</option></select></div>
+      <div class="fg"><label class="fl">Day</label><select class="fctl" id="day-sel"><option value="">All days</option><option value="-2">Day -2</option><option value="-1">Day -1</option><option value="0" selected>Day 0</option></select></div>
+    </div>
+    <div class="pbar" id="pbar"><div class="pfill"></div></div>
+    <div class="ebox" id="ebox"></div>
+    <div class="mft">
+      <button class="bcnl" onclick="closeModal()">Cancel</button>
+      <button class="brun" id="run-btn" onclick="submitBT()">&#9654; Run Backtest</button>
+    </div>
+  </div>
+</div>
+
+<!-- Own-fills hover panel (shown near cursor when over a buy/sell point) -->
+<div id="pfh"></div>
+
+<script>
+"use strict";
+
+// ─────────────────────────────────────────────────────────────────────────────
+// STATE
+// ─────────────────────────────────────────────────────────────────────────────
+const S = {
+  runs:   [],        // run metadata from /api/runs
+  data:   {},        // run_id → chart data from /api/runs/:id/data
+  active: null,      // run_id whose OB/price/stat cards are shown
+  cmp:    new Set(), // run_ids shown in PnL/pos overlay charts
+  prod:   null,      // selected product (null = ALL PRODUCTS)
+  tickIdx:0,
+  playing:false,
+  speed:  1,
+  timer:  null,
+  expH:   {},        // expanded chart heights
+  // Layer toggles for price chart
+  L:{prices:true,bid:false,mid:false,ask:false,micro:true,
+     spread:false,volume:false,depth:false,buy_fills:true,sell_fills:true},
+};
+
+// Plotly light layout base
+const PL={
+  paper_bgcolor:"#fff",plot_bgcolor:"#fff",
+  font:{family:"Segoe UI,system-ui,sans-serif",size:10,color:"#57606a"},
+  margin:{t:8,r:14,b:36,l:58},
+  xaxis:{gridcolor:"#f0f2f5",linecolor:"#e1e4e8",zeroline:false,tickfont:{size:9}},
+  yaxis:{gridcolor:"#f0f2f5",linecolor:"#e1e4e8",zeroline:false,tickfont:{size:9}},
+  hovermode:"x unified",showlegend:false,
+};
+const CFG={displayModeBar:true,responsive:true,displaylogo:false,scrollZoom:true,
+  modeBarButtonsToRemove:["pan2d","select2d","lasso2d","hoverClosestCartesian","hoverCompareCartesian","autoScale2d"]};
+
+const LAYERS=[
+  {id:"prices",  lbl:"PRICES"},  {id:"spread",    lbl:"SPREAD"},
+  {id:"volume",  lbl:"VOLUME"},  {id:"bid",       lbl:"BID"},
+  {id:"mid",     lbl:"MID"},     {id:"ask",       lbl:"ASK"},
+  {id:"depth",   lbl:"DEPTH"},   {id:"micro",     lbl:"MICRO"},
+  {id:"buy_fills",lbl:"BUY FILLS"},{id:"sell_fills",lbl:"SELL FILLS"},
+];
+const PROD_COLORS_DEF=["#1a7f37","#e07b00","#0550ae","#d62728","#9467bd","#8c564b"];
+
+// ─────────────────────────────────────────────────────────────────────────────
+// INIT
+// ─────────────────────────────────────────────────────────────────────────────
+(async()=>{
+  await checkStatus();
+  S.runs = await api("/api/runs");
+  await Promise.all(S.runs.map(r=>loadData(r.run_id)));
+  if(S.runs.length){
+    setActive(S.runs[0].run_id);
+    S.runs.forEach(r=>S.cmp.add(r.run_id));
+  }
+  renderAll();
+})();
+
+async function checkStatus(){
+  const s=await api("/api/status").catch(()=>({}));
+  document.getElementById("bt-st").innerHTML = s.ok
+    ? `<span style="color:#1a7f37;font-size:11px">&#9679; Backtester ready</span>`
+    : `<span style="color:#cf222e;font-size:11px" title="Run: make install">&#9888; Not found</span>`;
+  if(s.datasets?.length){
+    document.getElementById("ds-sel").innerHTML = s.datasets.map(d=>{
+      const l=d.id.replace(/_/g," ").replace(/\b\w/g,c=>c.toUpperCase());
+      return `<option value="${d.id}">${l}</option>`;
+    }).join("");
+  }
+}
+
+async function loadData(id){
+  if(S.data[id]) return;
+  try{
+    const d=await api(`/api/runs/${id}/data`);
+    if(!d.error) S.data[id]=d;
+  }catch(e){console.warn("loadData",id,e);}
+}
+
+function setActive(id){
+  S.active=id;
+  const d=S.data[id];
+  const ps=d?.products||[];
+  // Keep null (ALL PRODUCTS) as null; keep specific product if valid, else pick first
+  if(S.prod!==null && ps.length && !ps.includes(S.prod)) S.prod=ps[0];
+  S.tickIdx=0; stopPlay();
+  const sl=document.getElementById("pbsl");
+  sl.max=(d?.timestamps?.length||1)-1; sl.value=0;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// RENDER ALL
+// ─────────────────────────────────────────────────────────────────────────────
+function renderAll(){
+  renderStratPanel();
+  renderFilters();
+  updateProdLabels();
+  renderPriceChart();
+  renderPnlChart();
+  renderPosChart();
+  renderSummary();
+  updateTickUI();
+  document.getElementById("tracked").textContent=`${S.cmp.size} TRACKED`;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// STRATEGY PANEL
+// ─────────────────────────────────────────────────────────────────────────────
+function renderStratPanel(){
+  const wrap=document.getElementById("slist");
+  document.getElementById("strat-cnt").textContent=`${S.runs.length} run${S.runs.length!==1?"s":""}`;
+  if(!S.runs.length){wrap.innerHTML='<div class="nostrat">Upload an algorithm to get started.</div>';return;}
+  wrap.innerHTML=S.runs.map(r=>{
+    const pnl=r.final_pnl??0;
+    const comparing=S.cmp.has(r.run_id);
+    return `<div class="si${S.active===r.run_id?" cur":""}" onclick="clickStrat('${r.run_id}')">
+      <div class="sidot" style="background:${r.color}"></div>
+      <div class="siname" title="${esc(r.name)}">${esc(r.name)}</div>
+      <div class="sipnl ${pnl>=0?"pos":"neg"}">${pnl>=0?"+":""}${pnl.toFixed(1)}</div>
+      <button class="cmpbtn${comparing?" on":""}"
+        onclick="event.stopPropagation();toggleCmp('${r.run_id}')">${comparing?"COMPARING":"COMPARE"}</button>
+      <button class="delbtn" onclick="event.stopPropagation();deleteRun('${r.run_id}')" title="Delete">&times;</button>
+    </div>`;
+  }).join("");
+}
+
+function clickStrat(id){
+  if(!S.data[id]) loadData(id).then(()=>{setActive(id);renderAll();});
+  else{setActive(id);renderAll();}
+}
+
+function toggleCmp(id){
+  if(S.cmp.has(id)) S.cmp.delete(id); else S.cmp.add(id);
+  document.getElementById("tracked").textContent=`${S.cmp.size} TRACKED`;
+  renderStratPanel(); renderPnlChart(); renderPosChart(); renderSummary();
+}
+
+async function deleteRun(id){
+  const run=S.runs.find(r=>r.run_id===id);
+  if(!confirm(`Delete "${run?.name||id}"?`)) return;
+  try{await api(`/api/runs/${id}`,{method:"DELETE"});}
+  catch(e){alert("Delete failed: "+e);return;}
+  S.runs=S.runs.filter(r=>r.run_id!==id);
+  S.cmp.delete(id);
+  delete S.data[id];
+  if(S.active===id) S.active=S.runs[0]?.run_id||null;
+  if(S.active) setActive(S.active);
+  renderAll();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FILTERS
+// ─────────────────────────────────────────────────────────────────────────────
+function renderFilters(){
+  const d=S.data[S.active];
+  const run=S.runs.find(r=>r.run_id===S.active);
+
+  document.getElementById("f-src").innerHTML = run
+    ? `<button class="pill on">${esc((run.dataset||"dataset").toUpperCase())}</button>` : "";
+
+  // Day pills
+  const fw=document.getElementById("f-day");
+  if(d?.days){
+    const uniq=[...new Set(d.days)].sort((a,b)=>a-b);
+    fw.innerHTML=uniq.map(dy=>`<button class="pill on">DAY ${dy}</button>`).join("");
+  } else fw.innerHTML="";
+
+  // Product pills
+  const pw=document.getElementById("f-prod");
+  if(d?.products?.length){
+    const allOn=!S.prod;
+    pw.innerHTML=
+      `<button class="pill${allOn?" on":""}" onclick="selProd(null)">ALL PRODUCTS</button>`+
+      d.products.map(p=>
+        `<button class="pill${S.prod===p?" on":""}" onclick="selProd('${p}')">${esc(p)}</button>`
+      ).join("");
+  } else pw.innerHTML="";
+}
+
+function selProd(p){
+  const d=S.data[S.active];
+  // null = ALL PRODUCTS; pick first product as default if null passed with no prior
+  S.prod = p;
+  renderFilters();
+  updateProdLabels();
+  renderPriceChart();
+  renderPnlChart();
+  renderPosChart();
+  updateTickUI();
+}
+
+function updateProdLabels(){
+  const p=S.prod||"ALL PRODUCTS";
+  document.getElementById("pc-prod").textContent=p;
+  document.getElementById("ob-prod").textContent=p==="ALL PRODUCTS"?"—":p;
+  document.getElementById("ps-prod").textContent=p==="ALL PRODUCTS"?"—":p;
+  document.getElementById("md-prod").textContent=p==="ALL PRODUCTS"?"—":p;
+  document.getElementById("pos-ttl").textContent=p;
+  document.getElementById("sc-plbl").textContent=p==="ALL PRODUCTS"?"Total PnL":`${p} PnL`;
+  document.getElementById("pnl-sub").textContent=
+    S.prod ? `PER-PRODUCT · ${S.prod}` : "TOTAL · ALL PRODUCTS";
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PRICE CHART
+// ─────────────────────────────────────────────────────────────────────────────
+function renderPriceChart(){
+  const el=document.getElementById("price-chart");
+  const priceCard=document.getElementById("price-card");
+  const d=S.data[S.active];
+  const p=S.prod;
+
+  // Hide price chart entirely in ALL PRODUCTS mode
+  if(!p){
+    priceCard.style.display="none";
+    renderLayerPills();
+    return;
+  }
+  priceCard.style.display="";
+
+  if(!d){
+    Plotly.purge(el);
+    renderLayerPills();
+    return;
+  }
+  const ts=d.timestamps;
+  const shapes=[cursor(ts[S.tickIdx]||ts[0])];
+  Plotly.react(el, buildPriceTraces(d,p,ts), {
+    ...PL, shapes,
+    hovermode:"x unified",
+    hoverdistance:50,
+    yaxis:{...PL.yaxis,title:"Price"},
+    yaxis2:{overlaying:"y",visible:false,showgrid:false,zeroline:false},
+    xaxis:{...PL.xaxis,title:"Timestamp"},
+  }, CFG);
+  // Remove old listeners before re-binding
+  el.removeAllListeners && el.removeAllListeners('plotly_hover');
+  el.removeAllListeners && el.removeAllListeners('plotly_unhover');
+  // Show own fills panel only when cursor is near a fill point
+  el.on('plotly_hover', evdata=>{
+    const xval = evdata.xvals?.[0] ?? evdata.points?.[0]?.x;
+    if(xval==null) return;
+    const d2=S.data[S.active]; const p2=S.prod;
+    if(!d2||!p2) return;
+    const dts=d2.timestamps;
+    const tol=dts.length>1?Math.abs(dts[1]-dts[0])*4:600;
+    const near=(d2.trades||[]).filter(t=>t.symbol===p2&&t.side!=="market"&&Math.abs(t.gts-xval)<=tol);
+    const pfh=document.getElementById("pfh");
+    if(!near.length){pfh.style.display="none";return;}
+    const ev=evdata.event;
+    pfh.style.left=(ev.clientX+14)+"px";
+    pfh.style.top=(ev.clientY-24)+"px";
+    let html='<div class="fh-hdr">OWN FILLS</div>';
+    near.forEach(f=>{
+      const cls=f.side==="buy"?"fh-buy":"fh-sell";
+      html+=`<div class="fh-row"><span class="${cls}">${f.side.toUpperCase()}</span><span class="fh-qty">${f.quantity} @ ${f.price.toLocaleString(undefined,{minimumFractionDigits:0,maximumFractionDigits:2})}</span></div>`;
+    });
+    pfh.innerHTML=html; pfh.style.display="block";
+  });
+  el.on('plotly_unhover',()=>{document.getElementById("pfh").style.display="none";});
+  renderLayerPills();
+  document.getElementById("res-info").textContent=`${ts.length} / ${ts.length} plotted`;
+}
+
+function buildPriceTraces(d,p,ts){
+  const L=S.L;
+  const tr=[];
+  const ask=d.ask_series?.[p]||[];
+  const bid=d.bid_series?.[p]||[];
+  const mid=d.mid_series?.[p]||[];
+  const mic=d.micro_series?.[p]||[];
+
+  // connectgaps:false ensures null values create gaps instead of connections
+  if((L.prices||L.ask) && ask.length)
+    tr.push({x:ts,y:ask,mode:"lines",name:"ASK",connectgaps:false,
+      line:{color:"#d62728",width:1.3},hovertemplate:"Ask:%{y:.2f}<extra></extra>"});
+  if((L.prices||L.mid) && mid.length)
+    tr.push({x:ts,y:mid,mode:"lines",name:"MID",connectgaps:false,
+      line:{color:"#333",width:1.8},hovertemplate:"Mid:%{y:.2f}<extra></extra>"});
+  if((L.prices||L.bid) && bid.length)
+    tr.push({x:ts,y:bid,mode:"lines",name:"BID",connectgaps:false,
+      line:{color:"#2ca02c",width:1.3},hovertemplate:"Bid:%{y:.2f}<extra></extra>"});
+  if(L.micro && mic.length)
+    tr.push({x:ts,y:mic,mode:"lines",name:"MICRO",connectgaps:false,
+      line:{color:"#1f77b4",width:1.2,dash:"dot"},hovertemplate:"Micro:%{y:.2f}<extra></extra>"});
+
+  if(L.spread && ask.length && bid.length){
+    const spr=ask.map((a,i)=>(a!==null&&bid[i]!==null)?a-bid[i]:null);
+    tr.push({x:ts,y:spr,mode:"lines",name:"SPREAD",connectgaps:false,
+      line:{color:"#9467bd",width:1},yaxis:"y2",hovertemplate:"Spread:%{y:.2f}<extra></extra>"});
+  }
+
+  const buys =(d.trades||[]).filter(t=>t.symbol===p&&t.side==="buy");
+  const sells=(d.trades||[]).filter(t=>t.symbol===p&&t.side==="sell");
+  // hoverinfo:"skip" removes buy/sell from the unified tooltip — shown via custom pfh panel instead
+  if(L.buy_fills && buys.length)
+    tr.push({x:buys.map(t=>t.gts),y:buys.map(t=>t.price),mode:"markers",name:"BUY FILL",
+      marker:{symbol:"circle",size:9,color:"#1f77b4",line:{color:"#fff",width:1}},
+      hoverinfo:"skip"});
+  if(L.sell_fills && sells.length)
+    tr.push({x:sells.map(t=>t.gts),y:sells.map(t=>t.price),mode:"markers",name:"SELL FILL",
+      marker:{symbol:"circle",size:9,color:"#ff7f0e",line:{color:"#fff",width:1}},
+      hoverinfo:"skip"});
+  return tr;
+}
+
+function renderLayerPills(){
+  document.getElementById("layer-row").innerHTML=
+    LAYERS.map(l=>`<button class="lp${S.L[l.id]?" on":""}" onclick="toggleLayer('${l.id}')">${l.lbl}</button>`).join("");
+}
+
+function toggleLayer(id){
+  S.L[id]=!S.L[id];
+  renderPriceChart();
+}
+
+function setRes(r){
+  document.getElementById("sampled-btn").classList.toggle("on",r==="sampled");
+  document.getElementById("full-btn").classList.toggle("on",r==="full");
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PNL CHART
+// ─────────────────────────────────────────────────────────────────────────────
+function renderPnlChart(){
+  const el=document.getElementById("pnl-chart");
+  const p=S.prod;
+  const d=S.data[S.active];
+
+  if(!d||!S.active){
+    Plotly.purge(el);
+    document.getElementById("pnl-leg").innerHTML="";
+    return;
+  }
+
+  const traces=[];
+
+  if(!p){
+    // ALL PRODUCTS mode: total PnL + per-product lines for active run
+    if(d.total_pnl?.length){
+      traces.push({x:d.timestamps,y:d.total_pnl,mode:"lines",name:"TOTAL",connectgaps:true,
+        line:{color:"#111",width:2.5},fill:"tozeroy",fillcolor:"rgba(0,0,0,0.04)",
+        hovertemplate:"<b>Total</b>: %{y:.2f}<extra></extra>"});
+    }
+    (d.products||[]).forEach((prod,i)=>{
+      const y=d.pnl_series?.[prod]||[];
+      if(!y.length) return;
+      const col=PROD_COLORS_DEF[i%PROD_COLORS_DEF.length];
+      traces.push({x:d.timestamps,y,mode:"lines",name:prod.replace(/_/g," "),connectgaps:true,
+        line:{color:col,width:1.8},
+        hovertemplate:`<b>${esc(prod.replace(/_/g," "))}</b>: %{y:.2f}<extra></extra>`});
+    });
+  } else {
+    // Specific product: show per-product PnL for all comparing runs
+    const ids=cmpIds();
+    ids.forEach(id=>{
+      const run=S.runs.find(r=>r.run_id===id);
+      const rd=S.data[id];
+      if(!run||!rd) return;
+      const y=rd.pnl_series?.[p]||[];
+      if(!y.length) return;
+      traces.push({x:rd.timestamps,y,mode:"lines",name:run.name,connectgaps:true,
+        line:{color:run.color,width:2},
+        hovertemplate:`<b>${esc(run.name)}</b>: %{y:.2f}<extra></extra>`});
+    });
+  }
+
+  if(!traces.length){
+    Plotly.purge(el);
+    document.getElementById("pnl-leg").innerHTML="";
+    return;
+  }
+
+  const ts0=d.timestamps||[];
+  const shapes=ts0.length?[cursor(ts0[S.tickIdx]||ts0[0])]:[];
+
+  Plotly.react(el,traces,{...PL,shapes,showlegend:false,
+    yaxis:{...PL.yaxis,title:"PnL"},xaxis:{...PL.xaxis,title:"Timestamp"}},CFG);
+
+  document.getElementById("pnl-leg").innerHTML=traces.map(t=>{
+    const col=t.line?.color||"#888";
+    return `<div class="cli"><div class="clidot" style="background:${col}"></div>${esc(t.name)}</div>`;
+  }).join("");
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// POSITION CHART
+// ─────────────────────────────────────────────────────────────────────────────
+function renderPosChart(){
+  const el=document.getElementById("pos-chart");
+  const p=S.prod;
+  const d=S.data[S.active];
+
+  if(!d||!S.active){
+    Plotly.purge(el);
+    document.getElementById("pos-leg").innerHTML="";
+    return;
+  }
+
+  const traces=[];
+
+  if(!p){
+    // ALL PRODUCTS: per-product positions for active run
+    (d.products||[]).forEach((prod,i)=>{
+      const pos=d.pos_series?.[prod]||[];
+      if(!pos.length) return;
+      const col=PROD_COLORS_DEF[i%PROD_COLORS_DEF.length];
+      traces.push({x:d.timestamps,y:pos,mode:"lines",name:prod.replace(/_/g," "),
+        line:{color:col,width:1.8},fill:"tozeroy",fillcolor:rgba(col,.08),
+        hovertemplate:`<b>${esc(prod.replace(/_/g," "))}</b>: %{y}<extra></extra>`});
+    });
+  } else {
+    // Specific product: show comparing runs
+    const ids=cmpIds();
+    ids.forEach(id=>{
+      const run=S.runs.find(r=>r.run_id===id);
+      const rd=S.data[id];
+      if(!run||!rd) return;
+      const pos=rd.pos_series?.[p]||[];
+      if(!pos.length) return;
+      traces.push({x:rd.timestamps,y:pos,mode:"lines",name:run.name,
+        line:{color:run.color,width:1.8},fill:"tozeroy",fillcolor:rgba(run.color,.07),
+        hovertemplate:`<b>${esc(run.name)}</b>: %{y}<extra></extra>`});
+    });
+  }
+
+  if(!traces.length){
+    Plotly.purge(el);
+    document.getElementById("pos-leg").innerHTML="";
+    return;
+  }
+
+  const ts0=d.timestamps||[];
+  const shapes=ts0.length?[cursor(ts0[S.tickIdx]||ts0[0])]:[];
+
+  Plotly.react(el,traces,{...PL,shapes,showlegend:traces.length>1,
+    legend:{bgcolor:"transparent",font:{size:10}},
+    yaxis:{...PL.yaxis,title:"Position"},xaxis:{...PL.xaxis,title:"Timestamp"}},CFG);
+
+  document.getElementById("pos-leg").innerHTML=traces.map(t=>{
+    const col=t.line.color;
+    return `<div class="cli"><div class="clidot" style="background:${col}"></div>${esc(t.name)}</div>`;
+  }).join("");
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DAY BREAKDOWN SUMMARY TABLE
+// ─────────────────────────────────────────────────────────────────────────────
+function renderSummary(){
+  const tbl=document.getElementById("sum-tbl");
+  const d=S.data[S.active];
+  const run=S.runs.find(r=>r.run_id===S.active);
+  if(!d){tbl.innerHTML="";return;}
+  document.getElementById("sum-ttl").textContent=`Day Breakdown — ${run?.name||S.active}`;
+
+  const products=d.products||[];
+  const uniqDays=[...new Set(d.days||[])].sort((a,b)=>a-b);
+
+  // Find last index for each day
+  const dayLastIdx={};
+  (d.days||[]).forEach((day,i)=>{ dayLastIdx[day]=i; });
+
+  const dayRows=[];
+  let prevProd={}; products.forEach(p=>prevProd[p]=0);
+  let prevTot=0;
+
+  for(const day of uniqDays){
+    const li=dayLastIdx[day]; if(li===undefined) continue;
+    const curTot=d.total_pnl[li]||0;
+    const row={day, dayTot:curTot-prevTot, prods:{}, trades:0};
+    for(const p of products){
+      const cur=d.pnl_series?.[p]?.[li]||0;
+      row.prods[p]=cur-(prevProd[p]||0);
+      prevProd[p]=cur;
+    }
+    row.trades=(d.trades||[]).filter(t=>t.day===day&&t.side!=="market").length;
+    prevTot=curTot;
+    dayRows.push(row);
+  }
+
+  const totProds={}; products.forEach(p=>{totProds[p]=dayRows.reduce((s,r)=>s+(r.prods[p]||0),0);});
+  const totPnl=dayRows.reduce((s,r)=>s+r.dayTot,0);
+  const totTrades=dayRows.reduce((s,r)=>s+r.trades,0);
+  const shortName=p=>p.replace(/_/g," ").split(" ").at(-1).toUpperCase();
+
+  const thead=`<thead><tr>
+    <th>Day</th>
+    ${products.map(p=>`<th>${shortName(p)}</th>`).join("")}
+    <th>Total PnL</th><th>Own Trades</th>
+  </tr></thead>`;
+
+  const bodyRows=dayRows.map(row=>`<tr>
+    <td>Day ${row.day}</td>
+    ${products.map(p=>`<td class="${(row.prods[p]||0)>=0?"pos":"neg"}">${Math.round(row.prods[p]||0).toLocaleString()}</td>`).join("")}
+    <td class="${row.dayTot>=0?"pos":"neg"}">${row.dayTot.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
+    <td>${row.trades.toLocaleString()}</td>
+  </tr>`).join("");
+
+  const gRow=`<tr>
+    <td>Grand Total</td>
+    ${products.map(p=>`<td class="${(totProds[p]||0)>=0?"pos":"neg"}">${Math.round(totProds[p]||0).toLocaleString()}</td>`).join("")}
+    <td class="${totPnl>=0?"pos":"neg"}">${totPnl.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
+    <td>${totTrades.toLocaleString()}</td>
+  </tr>`;
+
+  tbl.innerHTML=thead+`<tbody>${bodyRows}${gRow}</tbody>`;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TICK UI — stat cards, order book, product summary, dynamics
+// ─────────────────────────────────────────────────────────────────────────────
+function updateTickUI(){
+  const d=S.data[S.active]; const idx=S.tickIdx; const p=S.prod;
+  const total=(d?.timestamps?.length||1)-1;
+  const ts=d?.timestamps?.[idx]||0;
+  const day=d?.days?.[idx]??0;
+
+  document.getElementById("t-tick").textContent=idx;
+  document.getElementById("t-tot").textContent=total;
+  document.getElementById("t-ts").textContent=ts;
+  document.getElementById("t-day").textContent=day;
+  document.getElementById("t-pct").textContent=total>0?`${Math.round(idx/total*100)}%`:"0%";
+
+  if(!d){clearCards();clearOB();return;}
+
+  const totPnl=d.total_pnl?.[idx]??0;
+  const mdd=d.max_drawdown??0;
+  const prodPnl=p?(d.pnl_series?.[p]?.[idx]??0):totPnl;
+  const pos=p?(d.pos_series?.[p]?.[idx]??0):0;
+  const micro=p?(d.micro_series?.[p]?.[idx]??null):null;
+  const midV=p?(d.mid_series?.[p]?.[idx]??null):null;
+  const spr=p?(d.spread_series?.[p]?.[idx]??0):0;
+  const vol=p?(d.volatility?.[p]??0):0;
+
+  setCard("sc-tot",totPnl,totPnl>=0?"pos":"neg");
+  document.getElementById("sc-dd").textContent=mdd.toFixed(2);
+  document.getElementById("sc-dd").className="sval neg";
+  setCard("sc-ppnl",prodPnl,prodPnl>=0?"pos":"neg");
+  setCard("sc-pos",pos,"neu");
+  document.getElementById("sc-micro").textContent=micro!==null?micro.toFixed(2):"—";
+  document.getElementById("sc-midsub").textContent=`Mid: ${midV!==null?midV.toFixed(2):"—"}`;
+
+  // Product summary
+  document.getElementById("ps-pos").textContent=pos;
+  document.getElementById("ps-pos").className="psval "+(pos>0?"pos":pos<0?"neg":"neu");
+  document.getElementById("ps-pnl").textContent=prodPnl.toFixed(3);
+  document.getElementById("ps-pnl").className="psval "+(prodPnl>=0?"pos":"neg");
+  document.getElementById("ps-mid").textContent=midV!==null?midV.toLocaleString(undefined,{minimumFractionDigits:1,maximumFractionDigits:1}):"—";
+  document.getElementById("ps-spr").textContent=spr.toFixed(1);
+
+  // Market dynamics
+  document.getElementById("vol-f").style.width=Math.min(vol/5*100,100)+"%";
+  document.getElementById("vol-v").textContent=vol.toFixed(2)+" PTS";
+  const sprEff=midV&&midV>0?spr/midV*100:0;
+  document.getElementById("spr-f").style.width=Math.min(sprEff/2*100,100)+"%";
+  document.getElementById("spr-v").textContent=sprEff.toFixed(3)+"%";
+
+  updateOB(d,idx,p);
+}
+
+function setCard(id,val,cls){
+  const el=document.getElementById(id);
+  el.textContent=(val>=0?"+":"")+val.toFixed(2);
+  el.className="sval "+cls;
+}
+function clearCards(){["sc-tot","sc-dd","sc-ppnl","sc-pos","sc-micro"].forEach(id=>{document.getElementById(id).textContent="—";});}
+
+function updateOB(d,idx,p){
+  const tbl=document.getElementById("ob-tbl");
+  const sprEl=document.getElementById("ob-spr");
+  const mpPct=document.getElementById("mp-pct");
+  const mpMark=document.getElementById("mp-mark");
+  if(!d||!p||!d.orderbook?.[p]){tbl.innerHTML="";sprEl.textContent="—";return;}
+  const ob=d.orderbook[p];
+  const bps=[ob.bp1?.[idx]||0,ob.bp2?.[idx]||0,ob.bp3?.[idx]||0];
+  const bvs=[ob.bv1?.[idx]||0,ob.bv2?.[idx]||0,ob.bv3?.[idx]||0];
+  const aps=[ob.ap1?.[idx]||0,ob.ap2?.[idx]||0,ob.ap3?.[idx]||0];
+  const avs=[ob.av1?.[idx]||0,ob.av2?.[idx]||0,ob.av3?.[idx]||0];
+  const mid=d.mid_series?.[p]?.[idx];
+  const spr=(aps[0]>0&&bps[0]>0)?(aps[0]-bps[0]).toFixed(1):"—";
+  sprEl.textContent=spr;
+
+  const maxV=Math.max(...bvs,...avs,1);
+  let rows="";
+  [...aps.map((pr,i)=>[pr,avs[i]])].filter(([pr])=>pr>0).reverse().forEach(([pr,vol])=>{
+    const bw=Math.max(Math.round(vol/maxV*64),2);
+    rows+=`<tr class="ask-r">
+      <td style="text-align:right;font-size:11px;padding-right:4px">${vol}</td>
+      <td style="text-align:center;font-weight:700">${pr.toLocaleString(undefined,{minimumFractionDigits:1,maximumFractionDigits:1})}</td>
+      <td style="width:70px;padding-left:4px"><div class="obar a" style="width:${bw}px"></div></td>
+    </tr>`;
+  });
+  if(mid!==null&&mid!==undefined)
+    rows+=`<tr class="mid-r"><td colspan="3">MID: ${mid.toLocaleString(undefined,{minimumFractionDigits:1,maximumFractionDigits:1})}</td></tr>`;
+  bps.map((pr,i)=>[pr,bvs[i]]).filter(([pr])=>pr>0).forEach(([pr,vol])=>{
+    const bw=Math.max(Math.round(vol/maxV*64),2);
+    rows+=`<tr class="bid-r">
+      <td style="width:70px;padding-right:4px"><div class="obar b" style="width:${bw}px"></div></td>
+      <td style="text-align:center;font-weight:700">${pr.toLocaleString(undefined,{minimumFractionDigits:1,maximumFractionDigits:1})}</td>
+      <td style="padding-left:4px;font-size:11px">${vol}</td>
+    </tr>`;
+  });
+  tbl.innerHTML=rows;
+
+  const pres=d.pressure_series?.[p]?.[idx]??0.5;
+  const pct=(pres*100).toFixed(1);
+  mpPct.textContent=pct+"%";
+  mpMark.style.left=pct+"%";
+}
+function clearOB(){document.getElementById("ob-tbl").innerHTML="";document.getElementById("ob-spr").textContent="—";}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// EXPAND / COLLAPSE — true fullscreen
+// ─────────────────────────────────────────────────────────────────────────────
+function toggleExp(chartId,btnId,defH){
+  const el=document.getElementById(chartId);
+  const btn=document.getElementById(btnId);
+  const card=el.closest('.card,.ccrd,.pcrd');
+  if(!card) return;
+  if(S.expH[chartId]){
+    // Collapse back to normal
+    S.expH[chartId]=false;
+    card.style.cssText="";
+    document.body.style.overflow="";
+    // Reset chart to default height and auto width
+    Plotly.relayout(el,{height:defH, width:undefined, autosize:true});
+    if(btn){btn.classList.remove("exp");btn.innerHTML="&#8663; EXPAND";}
+  }else{
+    // Expand to fullscreen
+    S.expH[chartId]=true;
+    card.style.cssText="position:fixed;inset:0;z-index:500;background:#fff;margin:0;border-radius:0;overflow:auto;display:flex;flex-direction:column";
+    // Make the chart div fill the card
+    el.style.flex="1";
+    document.body.style.overflow="hidden";
+    if(btn){btn.classList.add("exp");btn.innerHTML="&#8662; COLLAPSE";}
+    // After layout settles, measure available space and relayout
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{
+      const hdrEl=card.querySelector('.ptop,.chd');
+      const lyrEl=card.querySelector('.layer-row');
+      const usedH=(hdrEl?.offsetHeight||0)+(lyrEl?.offsetHeight||0);
+      const W=window.innerWidth;
+      const H=Math.max(window.innerHeight-usedH-16,400);
+      Plotly.relayout(el,{width:W, height:H, autosize:false});
+    }));
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PLAYBACK
+// ─────────────────────────────────────────────────────────────────────────────
+function togglePlay(){if(S.playing)stopPlay();else startPlay();}
+
+function startPlay(){
+  if(!S.data[S.active]) return;
+  S.playing=true;
+  document.getElementById("play-btn").innerHTML="&#9646;&#9646;";
+  S.timer=setInterval(()=>{
+    const max=(S.data[S.active]?.timestamps.length||1)-1;
+    S.tickIdx=Math.min(S.tickIdx+S.speed,max);
+    document.getElementById("pbsl").value=S.tickIdx;
+    updateTickUI(); moveCursors();
+    if(S.tickIdx>=max) stopPlay();
+  },80);
+}
+function stopPlay(){
+  S.playing=false;
+  document.getElementById("play-btn").innerHTML="&#9654;";
+  if(S.timer){clearInterval(S.timer);S.timer=null;}
+}
+function skipBack(){stopPlay();S.tickIdx=0;document.getElementById("pbsl").value=0;updateTickUI();moveCursors();}
+function skipFwd(){
+  stopPlay();const max=(S.data[S.active]?.timestamps.length||1)-1;
+  S.tickIdx=max;document.getElementById("pbsl").value=max;updateTickUI();moveCursors();
+}
+function onSlider(v){stopPlay();S.tickIdx=v;updateTickUI();moveCursors();}
+function setSpeed(n){S.speed=n;document.querySelectorAll(".spd").forEach(b=>b.classList.toggle("on",+b.dataset.s===n));}
+
+function gotoTs(target){
+  const d=S.data[S.active];if(!d||isNaN(target))return;
+  let best=0;
+  for(let i=0;i<d.timestamps.length;i++)
+    if(Math.abs(d.timestamps[i]-target)<Math.abs(d.timestamps[best]-target))best=i;
+  S.tickIdx=best;document.getElementById("pbsl").value=best;updateTickUI();moveCursors();
+}
+
+function moveCursors(){
+  const d=S.data[S.active];if(!d?.timestamps?.length)return;
+  const x=d.timestamps[S.tickIdx]||d.timestamps[0];
+  const shape=cursor(x);
+  ["price-chart","pnl-chart","pos-chart"].forEach(id=>{
+    const el=document.getElementById(id);
+    try{if(el._fullLayout)Plotly.relayout(el,{shapes:[shape]});}catch(e){}
+  });
+}
+
+function cursor(x){return{type:"line",x0:x,x1:x,y0:0,y1:1,yref:"paper",
+  line:{color:"#e60000",width:1.2,dash:"dot"},layer:"above"};}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MODAL
+// ─────────────────────────────────────────────────────────────────────────────
+let selFile=null;
+function openModal(){document.getElementById("modal").classList.add("open");}
+function closeModal(){
+  document.getElementById("modal").classList.remove("open");
+  selFile=null;
+  document.getElementById("dz-lbl").textContent="Drop your trader.py here or click to browse";
+  document.getElementById("dz").style.borderColor="";
+  document.getElementById("rname").value="";
+  document.getElementById("ebox").className="ebox";
+  document.getElementById("pbar").className="pbar";
+  document.getElementById("run-btn").disabled=false;
+  document.getElementById("run-btn").textContent="▶ Run Backtest";
+  document.getElementById("fi").value="";
+}
+document.getElementById("modal").addEventListener("click",e=>{if(e.target===e.currentTarget)closeModal();});
+const dz=document.getElementById("dz");
+dz.addEventListener("dragover",e=>{e.preventDefault();dz.classList.add("drag");});
+dz.addEventListener("dragleave",()=>dz.classList.remove("drag"));
+dz.addEventListener("drop",e=>{e.preventDefault();dz.classList.remove("drag");
+  const f=e.dataTransfer.files[0];if(f?.name.endsWith(".py"))setFile(f);});
+
+function setFile(f){
+  selFile=f;
+  document.getElementById("dz-lbl").innerHTML=`<strong>${esc(f.name)}</strong> ✓`;
+  dz.style.borderColor="#1a7f37";
+  if(!document.getElementById("rname").value)
+    document.getElementById("rname").value=f.name.replace(".py","");
+}
+
+async function submitBT(){
+  document.getElementById("ebox").className="ebox";
+  if(!selFile){showErr("Select a .py file first.");return;}
+  const btn=document.getElementById("run-btn");
+  btn.disabled=true;btn.textContent="Running…";
+  document.getElementById("pbar").className="pbar on";
+  const fd=new FormData();
+  fd.append("trader",selFile);
+  fd.append("dataset",document.getElementById("ds-sel").value);
+  fd.append("day",document.getElementById("day-sel").value);
+  fd.append("name",document.getElementById("rname").value||selFile.name);
+  try{
+    const res=await fetch("/api/backtest",{method:"POST",body:fd});
+    const data=await res.json();
+    if(!res.ok){showErr((data.error||"Unknown error")+(data.stderr?"\n\n"+data.stderr:""));return;}
+    S.runs.push(data);
+    await loadData(data.run_id);
+    S.cmp.add(data.run_id);
+    if(!S.active){setActive(data.run_id);}
+    closeModal();renderAll();
+  }catch(e){showErr(String(e));}
+  finally{
+    btn.disabled=false;btn.textContent="▶ Run Backtest";
+    document.getElementById("pbar").className="pbar";
+  }
+}
+function showErr(msg){const el=document.getElementById("ebox");el.textContent=msg;el.className="ebox on";}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// UTILS
+// ─────────────────────────────────────────────────────────────────────────────
+function cmpIds(){
+  const out=[];
+  if(S.active&&S.data[S.active]) out.push(S.active);
+  for(const id of S.cmp) if(id!==S.active&&S.data[id]) out.push(id);
+  return out;
+}
+async function api(url,opts={}){const r=await fetch(url,opts);if(!r.ok)throw new Error(`HTTP ${r.status}`);return r.json();}
+function esc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
+function rgba(hex,a){const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);return `rgba(${r},${g},${b},${a})`;}
+function mkEmpty(el,msg){return `<div class="empty" style="height:${el.style.height||'200px'}">${msg}</div>`;}
+</script>
+</body>
+</html>
