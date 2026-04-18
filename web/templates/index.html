@@ -720,8 +720,8 @@ function toggleDay(dy){
 function visibleMask(d){
   if(!S.activeDays) return null; // null = show all
   const allDays=[...new Set(d.days||[])];
-  // If all days are active, skip masking
-  if(S.activeDays.size>=allDays.length) return null;
+  // Skip masking only when EVERY day in this run is currently active
+  if(allDays.length>0 && allDays.every(day=>S.activeDays.has(day))) return null;
   return (d.days||[]).map(day=>S.activeDays.has(day));
 }
 

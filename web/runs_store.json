@@ -50,6 +50,23 @@
       "tick_count": 10000,
       "own_trade_count": 794,
       "backtester_output": "trader: trader_72c3ac7b3c.py\ndataset: round2\nmode: fast\nartifacts: log-only\nSET             DAY    TICKS  OWN_TRADES    FINAL_PNL  RUN_DIR\nD+1               1    10000         794     99762.00  runs/72c3ac7b3c\n\nPRODUCT                     D+1\nINTARIAN_PEPPER_ROOT   79364.00\nASH_COATED_OSMIUM      20398.00"
+    },
+    {
+      "run_id": "640965b2f4",
+      "name": "round2_algo",
+      "dataset": "round2",
+      "day": "0",
+      "color": "#d62728",
+      "visible": true,
+      "filename": "round2_algo.py",
+      "final_pnl": 97194.0,
+      "final_pnl_by_product": {
+        "ASH_COATED_OSMIUM": 17771.0,
+        "INTARIAN_PEPPER_ROOT": 79423.0
+      },
+      "tick_count": 10000,
+      "own_trade_count": 645,
+      "backtester_output": "trader: trader_640965b2f4.py\ndataset: round2\nmode: fast\nartifacts: log-only\nSET             DAY    TICKS  OWN_TRADES    FINAL_PNL  RUN_DIR\nD=0               0    10000         645     97194.00  runs/640965b2f4\n\nPRODUCT                     D=0\nINTARIAN_PEPPER_ROOT   79423.00\nASH_COATED_OSMIUM      17771.00"
     }
   ]
 }
