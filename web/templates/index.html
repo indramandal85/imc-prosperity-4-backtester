@@ -237,6 +237,46 @@ html,body{background:var(--bg);color:var(--tx);font-family:var(--font);font-size
 
 /* misc */
 .empty{display:flex;align-items:center;justify-content:center;color:var(--mt);font-size:12px}
+
+/* ── Tune Algorithm Modal ─────────────────────────────────────────────────── */
+.tune-btn{background:#0550ae;color:#fff;border:none;border-radius:6px;
+  padding:5px 13px;font-size:12px;font-weight:600;cursor:pointer;
+  display:flex;align-items:center;gap:5px}
+.tune-btn:hover{opacity:.82}
+.tune-modal{width:840px;max-width:96vw;max-height:90vh;overflow-y:auto}
+.tune-params-list{max-height:360px;overflow-y:auto;border:1px solid var(--bdr);border-radius:6px}
+.tune-param-row{display:grid;grid-template-columns:195px 85px 1fr;gap:8px;
+  align-items:center;padding:7px 12px;border-bottom:1px solid var(--bdr)}
+.tune-param-row:last-child{border-bottom:none}
+.tune-param-key{font-size:12px;font-weight:600;color:var(--tx);word-break:break-all}
+.tune-param-def{font-size:10px;color:var(--mt);margin-top:1px}
+.tune-param-type{font-size:10px;font-weight:700;letter-spacing:.4px;
+  text-transform:uppercase;color:var(--lbl)}
+.tune-mode-bar{display:flex;align-items:center;gap:14px;padding:10px 12px;
+  background:#f8f9fa;border-radius:6px;border:1px solid var(--bdr);margin-bottom:12px}
+.tune-mode-lbl{font-size:10px;font-weight:700;letter-spacing:.5px;
+  text-transform:uppercase;color:var(--lbl);min-width:80px;flex-shrink:0}
+.tune-radio-lbl{font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:4px}
+.tune-combo-info{font-size:11px;color:var(--mt);margin-top:8px;padding:6px 8px;
+  background:#f8f9fa;border-radius:5px;border:1px solid var(--bdr)}
+.tune-results-wrap{overflow-x:auto;margin-top:10px}
+.tune-results-tbl{width:100%;border-collapse:collapse;font-size:11px;
+  font-variant-numeric:tabular-nums}
+.tune-results-tbl th{padding:7px 11px;text-align:left;font-size:10px;font-weight:700;
+  letter-spacing:.4px;text-transform:uppercase;color:var(--lbl);
+  background:#f8f9fa;border-bottom:1px solid var(--bdr);
+  white-space:nowrap;cursor:pointer;user-select:none}
+.tune-results-tbl th:hover{color:var(--tx)}
+.tune-results-tbl td{padding:6px 11px;border-bottom:1px solid var(--bdr);
+  white-space:nowrap;font-size:11px}
+.tune-results-tbl tbody tr:first-child td{background:#f0fff4}
+.tune-results-tbl tbody tr:hover td{background:#f6f8fa}
+.tune-results-tbl tbody tr:first-child:hover td{background:#e6faea}
+.tune-err-row td{color:var(--red);font-family:var(--mono);font-size:10px}
+.tune-progress-bar{height:4px;border-radius:2px;background:#e9ecef;
+  margin:6px 0 12px;overflow:hidden}
+.tune-progress-fill{height:100%;border-radius:2px;background:#0550ae;
+  transition:width .35s ease}
 ::-webkit-scrollbar{width:5px;height:5px}::-webkit-scrollbar-thumb{background:var(--bdr2);border-radius:3px}
 
 /* ── Own-fills hover panel (custom overlay for buy/sell near cursor) ─────── */
@@ -261,6 +301,10 @@ html,body{background:var(--bg);color:var(--tx);font-family:var(--font);font-size
     <h1>Dashboard</h1>
     <div class="hdr-r">
       <span id="bt-st"></span>
+      <button class="tune-btn" onclick="openTuneModal()">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="4" y1="6" x2="20" y2="6"/><circle cx="10" cy="6" r="2.5" fill="currentColor"/><line x1="4" y1="12" x2="20" y2="12"/><circle cx="16" cy="12" r="2.5" fill="currentColor"/><line x1="4" y1="18" x2="20" y2="18"/><circle cx="8" cy="18" r="2.5" fill="currentColor"/></svg>
+        Tune Algorithm
+      </button>
       <button class="up-btn" onclick="openModal()">
         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         Upload Algorithm
@@ -481,6 +525,93 @@ html,body{background:var(--bg);color:var(--tx);font-family:var(--font);font-size
   </div>
 </div>
 
+<!-- ═══ TUNE ALGORITHM MODAL ════════════════════════════════════════════════════ -->
+<div class="ov" id="tune-modal">
+  <div class="modal tune-modal">
+    <div class="mttl" id="tune-step-title">Tune Algorithm</div>
+
+    <!-- ── STEP 1: Upload & dataset ──────────────────────────────────────── -->
+    <div id="tune-step1">
+      <div class="fg">
+        <label class="fl">Algorithm File (.py)</label>
+        <div class="dz" id="tune-dz" onclick="document.getElementById('tune-fi').click()">
+          <div class="dzico">&#9965;</div>
+          <div id="tune-dz-lbl">Drop your algorithm .py here or click to browse</div>
+          <div class="dzh">Must contain <code>PARAMS = {...}</code> with hyperparameters</div>
+        </div>
+        <input type="file" id="tune-fi" accept=".py" style="display:none" onchange="tuneSetFile(this.files[0])"/>
+      </div>
+      <div class="frow2">
+        <div class="fg"><label class="fl">Dataset</label>
+          <select class="fctl" id="tune-ds-sel" onchange="tuneUpdateDayOptions()"></select>
+        </div>
+        <div class="fg"><label class="fl">Day</label>
+          <select class="fctl" id="tune-day-sel"></select>
+        </div>
+      </div>
+      <div class="ebox" id="tune-ebox1"></div>
+      <div class="mft">
+        <button class="bcnl" onclick="closeTuneModal()">Cancel</button>
+        <button class="brun" id="tune-parse-btn" onclick="tuneParseParams()">Detect Parameters &#8594;</button>
+      </div>
+    </div>
+
+    <!-- ── STEP 2: Set ranges ─────────────────────────────────────────────── -->
+    <div id="tune-step2" style="display:none">
+      <p style="font-size:11px;color:var(--mt);margin-bottom:10px">
+        Enter comma-separated values to sweep for each parameter. Leave empty to keep the algorithm default.
+      </p>
+
+      <!-- Sweep mode -->
+      <div class="tune-mode-bar">
+        <span class="tune-mode-lbl">Sweep Mode</span>
+        <label class="tune-radio-lbl"><input type="radio" name="tune-mode" value="1d" checked/> One-at-a-time</label>
+        <label class="tune-radio-lbl"><input type="radio" name="tune-mode" value="grid"/> Full Grid</label>
+        <label class="tune-radio-lbl"><input type="radio" name="tune-mode" value="random"/> Random</label>
+        <span id="tune-nrwrap" style="display:none;align-items:center;gap:4px;font-size:11px;color:var(--mt)">
+          <input type="number" id="tune-n-random" value="50" min="5" max="500"
+            style="width:58px;padding:3px 6px;border:1px solid var(--bdr2);border-radius:4px;font-size:12px"
+            oninput="tuneUpdateComboCount()"/>
+          samples
+        </span>
+      </div>
+
+      <div class="tune-params-list" id="tune-params-list"></div>
+      <div class="tune-combo-info" id="tune-combo-info">No ranges set yet.</div>
+
+      <div class="ebox" id="tune-ebox2" style="margin-top:8px"></div>
+      <div class="mft">
+        <button class="bcnl" onclick="tuneGoStep(1)">&#8592; Back</button>
+        <button class="brun" id="tune-run-btn" onclick="tuneStartSweep()">&#9654; Start Sweep</button>
+      </div>
+    </div>
+
+    <!-- ── STEP 3: Running + Results ──────────────────────────────────────── -->
+    <div id="tune-step3" style="display:none">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+        <span id="tune-prog-label" style="font-size:12px;font-weight:600;color:var(--mt)">Starting…</span>
+        <button id="tune-stop-btn" class="bcnl" style="font-size:11px;padding:3px 10px"
+          onclick="tuneCancelJob()">Stop</button>
+      </div>
+      <div class="tune-progress-bar">
+        <div class="tune-progress-fill" id="tune-prog-fill" style="width:0%"></div>
+      </div>
+
+      <div class="tune-results-wrap">
+        <table class="tune-results-tbl" id="tune-results-tbl">
+          <tbody><tr><td style="padding:16px;text-align:center;color:var(--mt)">
+            Waiting for first result…
+          </td></tr></tbody>
+        </table>
+      </div>
+
+      <div class="mft" style="margin-top:14px">
+        <button class="bcnl" onclick="closeTuneModal()">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Own-fills hover panel (shown near cursor when over a buy/sell point) -->
 <div id="pfh"></div>
 
@@ -504,7 +635,8 @@ const S = {
   expH:   {},        // expanded chart heights
   // Layer toggles for price chart
   L:{prices:true,bid:false,mid:false,ask:false,micro:true,
-     spread:false,volume:false,depth:false,buy_fills:true,sell_fills:true},
+     spread:false,volume:false,depth:false,buy_fills:true,sell_fills:true,
+     ema:false,fair_val:false},
 };
 
 // Plotly light layout base
@@ -525,6 +657,7 @@ const LAYERS=[
   {id:"mid",     lbl:"MID"},     {id:"ask",       lbl:"ASK"},
   {id:"depth",   lbl:"DEPTH"},   {id:"micro",     lbl:"MICRO"},
   {id:"buy_fills",lbl:"BUY FILLS"},{id:"sell_fills",lbl:"SELL FILLS"},
+  {id:"ema",     lbl:"EMA"},     {id:"fair_val",  lbl:"FAIR VALUE"},
 ];
 const PROD_COLORS_DEF=["#1a7f37","#e07b00","#0550ae","#d62728","#9467bd","#8c564b"];
 
@@ -825,6 +958,8 @@ function buildPriceTraces(d,p,ts,mask){
   const bid=m(d.bid_series?.[p]||[]);
   const mid=m(d.mid_series?.[p]||[]);
   const mic=m(d.micro_series?.[p]||[]);
+  const ema=m(d.ema_series?.[p]||[]);
+  const fv =m(d.fair_series?.[p]||[]);
 
   if((L.prices||L.ask) && ask.length)
     tr.push({x:ts,y:ask,mode:"lines",name:"ASK",connectgaps:false,
@@ -844,6 +979,15 @@ function buildPriceTraces(d,p,ts,mask){
     tr.push({x:ts,y:spr,mode:"lines",name:"SPREAD",connectgaps:false,
       line:{color:"#9467bd",width:1},yaxis:"y2",hovertemplate:"Spread:%{y:.2f}<extra></extra>"});
   }
+
+  if(L.ema && ema.length)
+    tr.push({x:ts,y:ema,mode:"lines",name:"EMA",connectgaps:false,
+      line:{color:"#e377c2",width:1.5,dash:"dashdot"},
+      hovertemplate:"EMA:%{y:.2f}<extra></extra>"});
+  if(L.fair_val && fv.length)
+    tr.push({x:ts,y:fv,mode:"lines",name:"FAIR VALUE",connectgaps:false,
+      line:{color:"#ff7f0e",width:2,dash:"dash"},
+      hovertemplate:"Fair:%{y:.2f}<extra></extra>"});
 
   // Filter fills to only visible days
   const visTs=mask?new Set(ts):null;
@@ -1338,6 +1482,353 @@ async function api(url,opts={}){const r=await fetch(url,opts);if(!r.ok)throw new
 function esc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
 function rgba(hex,a){const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);return `rgba(${r},${g},${b},${a})`;}
 function mkEmpty(el,msg){return `<div class="empty" style="height:${el.style.height||'200px'}">${msg}</div>`;}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TUNE ALGORITHM
+// ─────────────────────────────────────────────────────────────────────────────
+const TUNE = {
+  file:     null,   // File object
+  params:   [],     // [{key, default, type}] from /api/tune/parse
+  jobId:    null,
+  pollTimer:null,
+  results:  [],     // accumulated results
+  products: [],     // sorted product names seen in results
+  sortKey:  'total_pnl',
+  sortAsc:  false,
+};
+
+// ── Open / Close ─────────────────────────────────────────────────────────────
+function openTuneModal(){
+  // Populate dataset + day selectors from DS_MAP (same data as backtest modal)
+  const dsSel = document.getElementById('tune-ds-sel');
+  if(Object.keys(DS_MAP).length){
+    dsSel.innerHTML = Object.values(DS_MAP).map(d=>{
+      const l = d.id.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase());
+      return `<option value="${d.id}">${l}</option>`;
+    }).join('');
+    tuneUpdateDayOptions();
+  } else {
+    dsSel.innerHTML = '<option value="round2">Round 2</option>';
+  }
+  tuneGoStep(1);
+  document.getElementById('tune-modal').classList.add('open');
+}
+
+function closeTuneModal(){
+  document.getElementById('tune-modal').classList.remove('open');
+  if(TUNE.pollTimer){ clearInterval(TUNE.pollTimer); TUNE.pollTimer=null; }
+  // Reset
+  TUNE.file=null; TUNE.params=[]; TUNE.jobId=null;
+  TUNE.results=[]; TUNE.products=[];
+  document.getElementById('tune-dz-lbl').textContent='Drop your algorithm .py here or click to browse';
+  document.getElementById('tune-dz').style.borderColor='';
+  document.getElementById('tune-fi').value='';
+  document.getElementById('tune-ebox1').className='ebox';
+  document.getElementById('tune-ebox2').className='ebox';
+  const runBtn = document.getElementById('tune-run-btn');
+  if(runBtn){ runBtn.disabled=false; runBtn.textContent='▶ Start Sweep'; }
+  const parseBtn = document.getElementById('tune-parse-btn');
+  if(parseBtn){ parseBtn.disabled=false; parseBtn.textContent='Detect Parameters →'; }
+}
+document.getElementById('tune-modal').addEventListener('click', e=>{
+  if(e.target===e.currentTarget) closeTuneModal();
+});
+
+// drag-and-drop for tune modal
+(()=>{
+  const dz = document.getElementById('tune-dz');
+  dz.addEventListener('dragover', e=>{ e.preventDefault(); dz.classList.add('drag'); });
+  dz.addEventListener('dragleave', ()=>dz.classList.remove('drag'));
+  dz.addEventListener('drop', e=>{
+    e.preventDefault(); dz.classList.remove('drag');
+    const f=e.dataTransfer.files[0];
+    if(f?.name.endsWith('.py')) tuneSetFile(f);
+  });
+})();
+
+// ── Step navigation ───────────────────────────────────────────────────────────
+function tuneGoStep(n){
+  [1,2,3].forEach(i=>{
+    document.getElementById(`tune-step${i}`).style.display = i===n ? '' : 'none';
+  });
+  const titles = {1:'Configure Algorithm', 2:'Set Parameter Ranges', 3:'Sweep Results'};
+  document.getElementById('tune-step-title').textContent = titles[n] || 'Tune Algorithm';
+}
+
+function tuneUpdateDayOptions(){
+  const dsId = document.getElementById('tune-ds-sel').value;
+  const ds   = DS_MAP[dsId];
+  const sel  = document.getElementById('tune-day-sel');
+  let html   = '<option value="">All days</option>';
+  if(ds?.days?.length){
+    const sorted = [...ds.days].sort((a,b)=>a-b);
+    sorted.forEach(d=>{ html += `<option value="${d}">Day ${d}</option>`; });
+    sel.innerHTML = html;
+    sel.value = String(sorted[sorted.length-1]);
+  } else {
+    sel.innerHTML = html;
+  }
+}
+
+function tuneSetFile(f){
+  TUNE.file = f;
+  document.getElementById('tune-dz-lbl').innerHTML = `<strong>${esc(f.name)}</strong> &#10003;`;
+  document.getElementById('tune-dz').style.borderColor = '#1a7f37';
+}
+
+// ── Step 1 → Step 2: parse parameters ────────────────────────────────────────
+async function tuneParseParams(){
+  const eb = document.getElementById('tune-ebox1');
+  if(!TUNE.file){ eb.textContent='Select a .py file first.'; eb.className='ebox on'; return; }
+  const btn = document.getElementById('tune-parse-btn');
+  btn.disabled=true; btn.textContent='Parsing…';
+  eb.className='ebox';
+  try{
+    const fd = new FormData();
+    fd.append('trader', TUNE.file);
+    const res  = await fetch('/api/tune/parse', {method:'POST', body:fd});
+    const data = await res.json();
+    if(!res.ok || data.error){
+      eb.textContent = data.error || 'Parse failed'; eb.className='ebox on'; return;
+    }
+    TUNE.params = data.params;
+    renderTuneParamsList();
+    tuneGoStep(2);
+  } catch(e){
+    eb.textContent = String(e); eb.className='ebox on';
+  } finally {
+    btn.disabled=false; btn.textContent='Detect Parameters →';
+  }
+}
+
+// ── Step 2: param range rows ──────────────────────────────────────────────────
+function renderTuneParamsList(){
+  const container = document.getElementById('tune-params-list');
+  container.innerHTML = TUNE.params.map((p,i)=>{
+    const defStr = typeof p.default==='string' ? `"${p.default}"` : String(p.default);
+    const hint   = p.type==='float'  ? 'e.g. 0.5, 1.0, 1.5, 2.0'
+                 : p.type==='int'    ? 'e.g. 5, 10, 15, 20'
+                 : p.type==='bool'   ? 'e.g. True, False'
+                 : 'comma-separated values';
+    return `<div class="tune-param-row">
+      <div>
+        <div class="tune-param-key">${esc(p.key)}</div>
+        <div class="tune-param-def">default: ${esc(defStr)}</div>
+      </div>
+      <div class="tune-param-type">${esc(p.type)}</div>
+      <input type="text" class="fctl" id="tune-r-${i}"
+        placeholder="${hint}"
+        style="font-size:11px;padding:5px 8px"
+        oninput="tuneUpdateComboCount()"/>
+    </div>`;
+  }).join('');
+
+  // Wire up sweep-mode radios
+  document.querySelectorAll('input[name="tune-mode"]').forEach(r=>{
+    r.addEventListener('change', ()=>{
+      const nrw = document.getElementById('tune-nrwrap');
+      nrw.style.display = r.value==='random' && r.checked ? 'flex' : 'none';
+      tuneUpdateComboCount();
+    });
+  });
+  tuneUpdateComboCount();
+}
+
+function tuneGetActiveRanges(){
+  return TUNE.params.reduce((acc,p,i)=>{
+    const raw = (document.getElementById(`tune-r-${i}`)?.value || '').trim();
+    if(!raw) return acc;
+    const vals = raw.split(',').map(s=>{
+      const t = s.trim();
+      if(t==='True')  return true;
+      if(t==='False') return false;
+      const n = Number(t);
+      return isNaN(n) ? t : n;
+    }).filter(v=>v!==''&&v!==undefined);
+    if(vals.length) acc[p.key] = vals;
+    return acc;
+  }, {});
+}
+
+function tuneGetMode(){
+  return [...document.querySelectorAll('input[name="tune-mode"]')].find(r=>r.checked)?.value || '1d';
+}
+
+function tuneUpdateComboCount(){
+  const active = tuneGetActiveRanges();
+  const keys   = Object.keys(active);
+  const mode   = tuneGetMode();
+  let n = 0;
+  if(mode==='1d')     n = Object.values(active).reduce((s,v)=>s+v.length, 0);
+  else if(mode==='grid') n = Object.values(active).reduce((s,v)=>s*(v.length||1), keys.length?1:0);
+  else                n = parseInt(document.getElementById('tune-n-random')?.value||'50');
+
+  const info = document.getElementById('tune-combo-info');
+  if(!keys.length){
+    info.textContent = 'No ranges set — enter comma-separated values for at least one parameter.';
+  } else {
+    const modeLabel = mode==='1d' ? 'one-at-a-time' : mode==='grid' ? 'full grid' : 'random';
+    info.textContent = `${keys.length} param(s) active · ${n} combination(s) to test · mode: ${modeLabel}`;
+  }
+}
+
+// ── Step 2 → Step 3: start sweep ─────────────────────────────────────────────
+async function tuneStartSweep(){
+  const active = tuneGetActiveRanges();
+  const eb = document.getElementById('tune-ebox2');
+  if(!Object.keys(active).length){
+    eb.textContent='Set values for at least one parameter.'; eb.className='ebox on'; return;
+  }
+  eb.className='ebox';
+  const btn = document.getElementById('tune-run-btn');
+  btn.disabled=true; btn.textContent='Starting…';
+
+  const fd = new FormData();
+  fd.append('trader',    TUNE.file);
+  fd.append('dataset',   document.getElementById('tune-ds-sel').value);
+  fd.append('day',       document.getElementById('tune-day-sel').value);
+  fd.append('mode',      tuneGetMode());
+  fd.append('n_random',  document.getElementById('tune-n-random')?.value||'50');
+  fd.append('ranges',    JSON.stringify(active));
+
+  try{
+    const res  = await fetch('/api/tune/start', {method:'POST', body:fd});
+    const data = await res.json();
+    if(!res.ok || data.error){
+      eb.textContent = data.error||'Failed to start'; eb.className='ebox on';
+      btn.disabled=false; btn.textContent='▶ Start Sweep'; return;
+    }
+    TUNE.jobId   = data.job_id;
+    TUNE.results = [];
+    TUNE.products= [];
+    TUNE.sortKey = 'total_pnl';
+    TUNE.sortAsc = false;
+    // Init step 3 UI
+    document.getElementById('tune-prog-label').textContent = `Running 0 / ${data.total}…`;
+    document.getElementById('tune-prog-fill').style.width  = '0%';
+    document.getElementById('tune-results-tbl').innerHTML  =
+      '<tbody><tr><td style="padding:16px;text-align:center;color:var(--mt)">Waiting for first result…</td></tr></tbody>';
+    document.getElementById('tune-stop-btn').disabled  = false;
+    document.getElementById('tune-stop-btn').textContent = 'Stop';
+    tuneGoStep(3);
+    TUNE.pollTimer = setInterval(tunePoll, 1200);
+  } catch(e){
+    eb.textContent=String(e); eb.className='ebox on';
+    btn.disabled=false; btn.textContent='▶ Start Sweep';
+  }
+}
+
+// ── Polling ───────────────────────────────────────────────────────────────────
+async function tunePoll(){
+  if(!TUNE.jobId) return;
+  try{
+    const data = await api(`/api/tune/job/${TUNE.jobId}`);
+    const done  = data.done  || 0;
+    const total = data.total || 1;
+    const pct   = Math.round(done / total * 100);
+
+    document.getElementById('tune-prog-fill').style.width = pct+'%';
+    document.getElementById('tune-prog-label').textContent =
+      data.status==='done'      ? `Complete — ${done} combinations tested` :
+      data.status==='cancelled' ? `Stopped at ${done} / ${total}` :
+      data.status==='error'     ? `Error: ${data.error||'unknown'}` :
+                                  `Running ${done} / ${total}  (${pct}%)…`;
+
+    TUNE.results  = data.results || [];
+    // Collect all product names seen so far
+    const prods = new Set();
+    TUNE.results.forEach(r=>Object.keys(r.pnl_by_product||{}).forEach(p=>prods.add(p)));
+    TUNE.products = [...prods].sort();
+    renderTuneResults();
+
+    if(['done','cancelled','error'].includes(data.status)){
+      clearInterval(TUNE.pollTimer); TUNE.pollTimer=null;
+      document.getElementById('tune-stop-btn').disabled  = true;
+      document.getElementById('tune-stop-btn').textContent = 'Done';
+    }
+  } catch(e){ console.warn('tunePoll error', e); }
+}
+
+async function tuneCancelJob(){
+  if(TUNE.jobId)
+    await fetch(`/api/tune/job/${TUNE.jobId}/cancel`, {method:'POST'}).catch(()=>{});
+  clearInterval(TUNE.pollTimer); TUNE.pollTimer=null;
+  document.getElementById('tune-stop-btn').disabled  = true;
+  document.getElementById('tune-stop-btn').textContent = 'Stopped';
+  document.getElementById('tune-prog-label').textContent = 'Stopped by user.';
+}
+
+// ── Results table ─────────────────────────────────────────────────────────────
+function tuneSetSort(key){
+  if(TUNE.sortKey===key) TUNE.sortAsc = !TUNE.sortAsc;
+  else { TUNE.sortKey=key; TUNE.sortAsc = (key!=='total_pnl'); }
+  renderTuneResults();
+}
+
+function renderTuneResults(){
+  const tbl  = document.getElementById('tune-results-tbl');
+  const good = TUNE.results.filter(r=>r.total_pnl!=null);
+  const bad  = TUNE.results.filter(r=>r.total_pnl==null);
+
+  if(!good.length && !bad.length) return;
+  if(!good.length){
+    tbl.innerHTML='<tbody><tr><td style="padding:16px;text-align:center;color:var(--mt)">All runs errored — check algorithm validity.</td></tr></tbody>';
+    return;
+  }
+
+  // Sort good results
+  const sk=TUNE.sortKey, asc=TUNE.sortAsc;
+  good.sort((a,b)=>{
+    let av, bv;
+    if(sk==='total_pnl'){ av=a.total_pnl; bv=b.total_pnl; }
+    else if(TUNE.products.includes(sk)){ av=a.pnl_by_product?.[sk]??-Infinity; bv=b.pnl_by_product?.[sk]??-Infinity; }
+    else { av=a.overrides?.[sk]??''; bv=b.overrides?.[sk]??''; }
+    return av<bv ? (asc?-1:1) : av>bv ? (asc?1:-1) : 0;
+  });
+
+  // Collect all swept param keys (union across all combos)
+  const paramKeys=[...new Set(good.concat(bad).flatMap(r=>Object.keys(r.overrides||{})))];
+
+  const arrow = k => TUNE.sortKey===k ? (TUNE.sortAsc?' &#8593;':' &#8595;') : '';
+  const th    = (k,lbl) => `<th onclick="tuneSetSort('${k}')">${lbl}${arrow(k)}</th>`;
+
+  const thead = `<thead><tr>
+    <th>#</th>
+    ${paramKeys.map(k=>th(k,k.replace(/^[A-Z]+_/,''))).join('')}
+    ${th('total_pnl','Total PnL')}
+    ${TUNE.products.map(p=>th(p,p.replace(/_/g,' ').split(' ').at(-1))).join('')}
+  </tr></thead>`;
+
+  const goodRows = good.map((r,i)=>{
+    const topRow = i===0 ? 'style="background:#f0fff4"' : '';
+    const pc = r.total_pnl>=0 ? 'pos' : 'neg';
+    return `<tr ${topRow}>
+      <td>${i+1}</td>
+      ${paramKeys.map(k=>{
+        const v=r.overrides?.[k];
+        return `<td style="font-family:var(--mono)">${v!=null?esc(String(v)):'<span style="color:var(--lbl)">—</span>'}</td>`;
+      }).join('')}
+      <td class="${pc}" style="font-weight:700">${r.total_pnl>=0?'+':''}${Math.round(r.total_pnl).toLocaleString()}</td>
+      ${TUNE.products.map(p=>{
+        const v=r.pnl_by_product?.[p];
+        if(v==null) return '<td style="color:var(--lbl)">—</td>';
+        const pc2=v>=0?'pos':'neg';
+        return `<td class="${pc2}">${v>=0?'+':''}${Math.round(v).toLocaleString()}</td>`;
+      }).join('')}
+    </tr>`;
+  }).join('');
+
+  const errRows = bad.map(r=>{
+    const combo = Object.entries(r.overrides||{}).map(([k,v])=>`${k}=${v}`).join(', ') || '(no overrides)';
+    return `<tr class="tune-err-row">
+      <td colspan="${1+paramKeys.length+1+TUNE.products.length}" style="padding:5px 11px">
+        ERROR [${esc(combo)}]: ${esc(r.error||'unknown error')}
+      </td>
+    </tr>`;
+  }).join('');
+
+  tbl.innerHTML = thead+`<tbody>${goodRows}${errRows}</tbody>`;
+}
 </script>
 </body>
 </html>

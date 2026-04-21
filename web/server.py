@@ -3,7 +3,7 @@
 IMC Prosperity Local Backtester Dashboard — backend server
 """
 
-import os, sys, csv, json, uuid, shutil, subprocess, math
+import os, sys, csv, json, uuid, shutil, subprocess, math, re, threading, itertools, random
 from pathlib import Path
 from io import StringIO
 from flask import Flask, request, jsonify, render_template
@@ -18,6 +18,9 @@ app = Flask(__name__, template_folder=str(WEB_DIR / "templates"))
 PALETTE = ["#1f77b4","#ff7f0e","#2ca02c","#d62728",
            "#9467bd","#8c564b","#e377c2","#7f7f7f",
            "#bcbd22","#17becf","#aec7e8","#ffbb78"]
+
+# ── Hyperparameter Tuning State ────────────────────────────────────────────────
+TUNE_JOBS: dict = {}   # job_id → job state dict
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -192,6 +195,8 @@ def parse_submission_log(log_path: Path) -> dict:
 
     last_ob_row: dict[str, dict | None] = {p: None for p in products}
     last_valid_pnl: dict[str, float]    = {p: 0.0  for p in products}
+    # EMA state: initialise at the hard anchor 10000
+    ema_state: dict[str, float] = {p: 10000.0 for p in products}
 
     pnl_s    = {p: [] for p in products}
     mid_s    = {p: [] for p in products}
@@ -200,6 +205,8 @@ def parse_submission_log(log_path: Path) -> dict:
     bid_s    = {p: [] for p in products}
     ask_s    = {p: [] for p in products}
     press_s  = {p: [] for p in products}
+    ema_s    = {p: [] for p in products}
+    fair_s   = {p: [] for p in products}
     ob       = {p: {k: [] for k in
                     ["bp1","bv1","bp2","bv2","bp3","bv3",
                      "ap1","av1","ap2","av2","ap3","av3"]}
@@ -238,6 +245,12 @@ def parse_submission_log(log_path: Path) -> dict:
                 micro_s[p].append(row["micro"])
                 spread_s[p].append(row["spread"])
                 press_s[p].append(row["pressure"])
+                # Update EMA: 0.06 × mid + 0.94 × prev_ema
+                mid_val = row["mid"] if row["mid"] is not None else ema_state[p]
+                ema_state[p] = 0.15 * mid_val + 0.85 * ema_state[p]
+                fair_val = 0.70 * 10000.0 + 0.30 * ema_state[p]
+                ema_s[p].append(round(ema_state[p], 4))
+                fair_s[p].append(round(fair_val, 4))
                 for k in ["bp1","bv1","bp2","bv2","bp3","bv3",
                            "ap1","av1","ap2","av2","ap3","av3"]:
                     ob[p][k].append(row[k])
@@ -248,6 +261,8 @@ def parse_submission_log(log_path: Path) -> dict:
                 mid_s[p].append(None)
                 micro_s[p].append(None)
                 spread_s[p].append(None)
+                ema_s[p].append(None)
+                fair_s[p].append(None)
                 r_last = last_ob_row[p]
                 press_s[p].append(r_last["pressure"] if r_last else 0.5)
                 for k in ["bp1","bv1","bp2","bv2","bp3","bv3",
@@ -334,6 +349,8 @@ def parse_submission_log(log_path: Path) -> dict:
         "spread_series": spread_s,
         "bid_series":    bid_s,
         "ask_series":    ask_s,
+        "ema_series":    ema_s,
+        "fair_series":   fair_s,
         "pressure_series": press_s,
         "pos_series":    pos_s,
         "orderbook":     ob,
@@ -381,6 +398,144 @@ def _merge(base: dict, extra: dict) -> None:
             base["volatility"].get(p, 0),
             extra["volatility"].get(p, 0)
         )
+
+
+# ── Tune helpers ───────────────────────────────────────────────────────────────
+
+def parse_params_from_src(src: str) -> list:
+    """Extract all key/default pairs from the PARAMS dict in an algorithm source."""
+    result = []
+    lines = src.split('\n')
+    in_params = False
+    brace_depth = 0
+    for line in lines:
+        if not in_params:
+            if re.match(r'\s*PARAMS\s*(?::[^=]*)?\s*=\s*\{', line):
+                in_params = True
+                brace_depth = line.count('{') - line.count('}')
+        else:
+            brace_depth += line.count('{') - line.count('}')
+            if brace_depth <= 0:
+                break
+            stripped = line.strip()
+            if not stripped or stripped.startswith('#'):
+                continue
+            m = re.match(r'^\s*"([^"]+)"\s*:\s*(.+?)(?:\s*,)?\s*(?:#.*)?$', line)
+            if m:
+                key = m.group(1)
+                raw = m.group(2).strip().rstrip(',').strip()
+                try:
+                    val = eval(raw)   # safe: only called on own PARAMS dict values
+                except Exception:
+                    val = raw
+                result.append({'key': key, 'default': val, 'type': type(val).__name__})
+    return result
+
+
+def patch_params_src(src: str, overrides: dict) -> str:
+    """Replace values in the PARAMS dict block for the given keys."""
+    lines = src.split('\n')
+    out = []
+    in_params = False
+    brace_depth = 0
+    for line in lines:
+        if not in_params:
+            if re.match(r'\s*PARAMS\s*(?::[^=]*)?\s*=\s*\{', line):
+                in_params = True
+                brace_depth = line.count('{') - line.count('}')
+                out.append(line)
+                continue
+        else:
+            brace_depth += line.count('{') - line.count('}')
+            if brace_depth <= 0:
+                in_params = False
+                out.append(line)
+                continue
+            stripped = line.strip()
+            if stripped.startswith('#') or not stripped:
+                out.append(line)
+                continue
+            m = re.match(r'^(\s*"([^"]+)"\s*:\s*)([^,#\n]+?)\s*(,\s*(?:#.*)?)?\s*$', line)
+            if m and m.group(2) in overrides:
+                val = overrides[m.group(2)]
+                val_str = repr(val) if isinstance(val, str) else str(val)
+                suffix = m.group(4) if m.group(4) else ','
+                line = f'{m.group(1)}{val_str}{suffix}'
+        out.append(line)
+    return '\n'.join(out)
+
+
+def _read_tune_metrics(rid: str) -> tuple:
+    """Read total_pnl and pnl_by_product from Rust backtester output for run rid."""
+    total_pnl = 0.0
+    pnl_by_product: dict = {}
+    for rd in sorted(RUNS_DIR.glob(f'{rid}*'), key=lambda p: len(p.name)):
+        mf = rd / 'metrics.json'
+        if mf.exists():
+            try:
+                m = json.loads(mf.read_text())
+                total_pnl = float(m.get('final_pnl_total', 0))
+                pnl_by_product = {k: float(v) for k, v in m.get('final_pnl_by_product', {}).items()}
+                break
+            except Exception:
+                pass
+    # Clean up run dirs so they don't pollute the main runs store
+    for rd in RUNS_DIR.glob(f'{rid}*'):
+        if rd.is_dir():
+            shutil.rmtree(rd, ignore_errors=True)
+    return total_pnl, pnl_by_product
+
+
+def _run_tune_worker(job_id: str, algo_src: str, dataset: str, day: str, combos: list):
+    """Background thread: run one backtester call per combo, store results in TUNE_JOBS."""
+    job = TUNE_JOBS[job_id]
+    bt = find_backtester()
+    if not bt:
+        job['status'] = 'error'
+        job['error'] = 'rust_backtester not found — run make install'
+        return
+
+    job['status'] = 'running'
+    job['total'] = len(combos)
+    job['done'] = 0
+    job['results'] = []
+
+    for overrides in combos:
+        if job.get('cancelled'):
+            break
+        rid = uuid.uuid4().hex[:8]
+        tmp = Path(f'/tmp/tune_{rid}.py')
+        try:
+            patched = patch_params_src(algo_src, overrides)
+            tmp.write_text(patched)
+            cmd = [bt, '--trader', str(tmp), '--dataset', dataset, '--run-id', rid]
+            if day:
+                cmd.append(f'--day={day}')
+            proc = subprocess.run(
+                cmd, cwd=str(REPO_ROOT), capture_output=True, text=True, timeout=120,
+                env={**os.environ, 'PYO3_PYTHON': sys.executable}
+            )
+            if proc.returncode != 0:
+                job['results'].append({
+                    'overrides': overrides, 'total_pnl': None,
+                    'pnl_by_product': {}, 'error': proc.stderr.strip()[:300],
+                })
+            else:
+                total_pnl, pnl_by_product = _read_tune_metrics(rid)
+                job['results'].append({
+                    'overrides': overrides, 'total_pnl': total_pnl,
+                    'pnl_by_product': pnl_by_product, 'error': None,
+                })
+        except Exception as exc:
+            job['results'].append({
+                'overrides': overrides, 'total_pnl': None,
+                'pnl_by_product': {}, 'error': str(exc),
+            })
+        finally:
+            tmp.unlink(missing_ok=True)
+            job['done'] += 1
+
+    job['status'] = 'cancelled' if job.get('cancelled') else 'done'
 
 
 # ── Routes ─────────────────────────────────────────────────────────────────────
@@ -553,6 +708,104 @@ def rename_run(run_id):
             r["name"] = name
             break
     save_store(s)
+    return jsonify({"ok": True})
+
+
+# ── Tune routes ────────────────────────────────────────────────────────────────
+
+@app.route("/api/tune/parse", methods=["POST"])
+def tune_parse():
+    f = request.files.get("trader")
+    if not f:
+        return jsonify({"error": "No file uploaded"}), 400
+    if not f.filename.endswith(".py"):
+        return jsonify({"error": "File must be a .py algorithm"}), 400
+    src = f.read().decode("utf-8", errors="replace")
+    params = parse_params_from_src(src)
+    if not params:
+        return jsonify({"error": "No PARAMS = {...} dict found in the uploaded algorithm"}), 400
+    return jsonify({"params": params})
+
+
+@app.route("/api/tune/start", methods=["POST"])
+def tune_start():
+    f = request.files.get("trader")
+    if not f:
+        return jsonify({"error": "No file uploaded"}), 400
+    src = f.read().decode("utf-8", errors="replace")
+
+    dataset  = request.form.get("dataset", "round2")
+    day      = request.form.get("day", "")
+    mode     = request.form.get("mode", "1d")          # "1d" | "grid" | "random"
+    n_random = max(1, int(request.form.get("n_random", 50)))
+
+    try:
+        ranges = json.loads(request.form.get("ranges", "{}"))
+    except Exception:
+        return jsonify({"error": "Invalid ranges JSON"}), 400
+
+    # Filter to params that have non-empty list values
+    active = {k: v for k, v in ranges.items() if isinstance(v, list) and len(v) > 0}
+    if not active:
+        return jsonify({"error": "No parameter ranges specified. Enter comma-separated values for at least one parameter."}), 400
+
+    keys = list(active.keys())
+    vals_list = [active[k] for k in keys]
+
+    combos: list = []
+    if mode == "1d":
+        for key, values in active.items():
+            for val in values:
+                combos.append({key: val})
+    elif mode == "grid":
+        for combo_vals in itertools.product(*vals_list):
+            combos.append(dict(zip(keys, combo_vals)))
+    else:  # random
+        seen: set = set()
+        attempts = 0
+        while len(combos) < n_random and attempts < n_random * 20:
+            attempts += 1
+            chosen = tuple(random.choice(v) for v in vals_list)
+            if chosen not in seen:
+                seen.add(chosen)
+                combos.append(dict(zip(keys, chosen)))
+
+    if not combos:
+        return jsonify({"error": "No combinations generated"}), 400
+
+    job_id = uuid.uuid4().hex[:10]
+    TUNE_JOBS[job_id] = {
+        "status": "starting", "total": len(combos), "done": 0,
+        "results": [], "error": None, "cancelled": False,
+    }
+    t = threading.Thread(
+        target=_run_tune_worker,
+        args=(job_id, src, dataset, day, combos),
+        daemon=True,
+    )
+    t.start()
+    return jsonify({"job_id": job_id, "total": len(combos)})
+
+
+@app.route("/api/tune/job/<job_id>")
+def tune_job_status(job_id):
+    job = TUNE_JOBS.get(job_id)
+    if not job:
+        return jsonify({"error": "Job not found"}), 404
+    return jsonify({
+        "status":  job["status"],
+        "total":   job["total"],
+        "done":    job["done"],
+        "results": job["results"],
+        "error":   job.get("error"),
+    })
+
+
+@app.route("/api/tune/job/<job_id>/cancel", methods=["POST"])
+def tune_cancel(job_id):
+    job = TUNE_JOBS.get(job_id)
+    if job:
+        job["cancelled"] = True
     return jsonify({"ok": True})
 
 
