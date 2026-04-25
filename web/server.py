@@ -3,10 +3,10 @@
 IMC Prosperity Local Backtester Dashboard — backend server
 """
 
-import os, sys, csv, json, uuid, shutil, subprocess, math, re, threading, itertools, random
+import os, sys, csv, json, uuid, shutil, subprocess, math, re, threading, itertools, random, datetime
 from pathlib import Path
 from io import StringIO
-from flask import Flask, request, jsonify, render_template
+from flask import Flask, request, jsonify, render_template, Response
 
 REPO_ROOT  = Path(__file__).parent.parent.resolve()
 RUNS_DIR   = REPO_ROOT / "runs"
@@ -538,6 +538,445 @@ def _run_tune_worker(job_id: str, algo_src: str, dataset: str, day: str, combos:
     job['status'] = 'cancelled' if job.get('cancelled') else 'done'
 
 
+# ═══════════════════════════════════════════════════════════════════════════════
+#                     ANALYSIS LOG GENERATION
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def _norm_cdf(x: float) -> float:
+    """Abramowitz & Stegun approximation for N(x)."""
+    if x < 0:
+        return 1.0 - _norm_cdf(-x)
+    t = 1.0 / (1.0 + 0.2316419 * x)
+    poly = t * (0.31938153 + t * (-0.356563782 + t * (1.781477937 + t * (-1.821255978 + t * 1.330274429))))
+    return 1.0 - (1.0 / math.sqrt(2 * math.pi)) * math.exp(-0.5 * x * x) * poly
+
+
+def _bs_call(S: float, K: float, T: float, sigma: float) -> float:
+    if T <= 0 or sigma <= 0 or S <= 0:
+        return max(0.0, S - K)
+    try:
+        d1 = (math.log(S / K) + 0.5 * sigma * sigma * T) / (sigma * math.sqrt(T))
+        d2 = d1 - sigma * math.sqrt(T)
+        return S * _norm_cdf(d1) - K * _norm_cdf(d2)
+    except Exception:
+        return max(0.0, S - K)
+
+
+def _bs_delta(S: float, K: float, T: float, sigma: float) -> float:
+    if T <= 0 or sigma <= 0:
+        return 1.0 if S > K else 0.0
+    try:
+        d1 = (math.log(S / K) + 0.5 * sigma * sigma * T) / (sigma * math.sqrt(T))
+        return _norm_cdf(d1)
+    except Exception:
+        return 1.0 if S > K else 0.0
+
+
+def _implied_vol(S: float, K: float, T: float, mkt: float) -> float | None:
+    intr = max(0.0, S - K)
+    if mkt <= intr + 0.01 or T <= 0.001:
+        return None
+    lo, hi = 1e-8, 5.0
+    for _ in range(80):
+        mid = 0.5 * (lo + hi)
+        if _bs_call(S, K, T, mid) < mkt:
+            lo = mid
+        else:
+            hi = mid
+        if hi - lo < 1e-7:
+            break
+    result = 0.5 * (lo + hi)
+    return result if 0 < result < 3.0 else None
+
+
+# Voucher strikes recognised in Round-3 algorithms
+_VOUCHER_STRIKES: dict[str, int] = {
+    "VEV_4000": 4000, "VEV_4500": 4500, "VEV_5000": 5000,
+    "VEV_5100": 5100, "VEV_5200": 5200, "VEV_5300": 5300,
+    "VEV_5400": 5400, "VEV_5500": 5500, "VEV_6000": 6000, "VEV_6500": 6500,
+}
+_SIGMA_STRIKES = [5300, 5400, 5500]
+_T_INIT = 9.0
+_SIGMA_INIT = 0.01174
+
+
+def _compute_z_score(history: list[float], current: float):
+    if len(history) < 2:
+        return 0.0, current, 0.0
+    n = len(history)
+    sma = sum(history) / n
+    var = sum((x - sma) ** 2 for x in history) / n
+    std = math.sqrt(var)
+    z = (current - sma) / std if std > 1e-9 else 0.0
+    return z, sma, std
+
+
+def _range_pos(history: list[float], current: float):
+    if not history:
+        return 0.5, current, current
+    lo, hi = min(history), max(history)
+    w = hi - lo
+    return ((current - lo) / w if w > 1e-9 else 0.5), lo, hi
+
+
+def _position_limits() -> dict[str, int]:
+    return {
+        "HYDROGEL_PACK": 80, "VELVETFRUIT_EXTRACT": 100,
+        "VEV_4000": 50, "VEV_4500": 50,
+        "VEV_5000": 100, "VEV_5100": 100, "VEV_5200": 100, "VEV_5300": 100,
+        "VEV_5400": 100, "VEV_5500": 100, "VEV_6000": 100, "VEV_6500": 100,
+    }
+
+
+def generate_analysis_log(log_path: Path, run_meta: dict) -> str:
+    """
+    Parse a submission.log and produce a rich, human-readable analysis log that
+    mirrors the format of the official IMC log files while adding algorithmic
+    metrics for every timestep.
+
+    Sections per timestep:
+      ─ CORE SIGNAL METRICS  (mid, z-score, SMA, std, range position)
+      ─ MARKET MICROSTRUCTURE (bid/ask, spread, microprice, depth)
+      ─ RISK & POSITION       (pos, limit, remaining capacity, inventory skew)
+      ─ OPTIONS METRICS       (BS price, delta, IV, T, strike)   [if vouchers]
+      ─ EXECUTION METRICS     (size fraction, strength, max levels, quote placement)
+      ─ MARKET MAKING         (spread around fair, joiner levels)
+    """
+    try:
+        raw = json.loads(log_path.read_text())
+    except Exception as e:
+        return f"ERROR: Could not parse submission.log — {e}\n"
+
+    activities_csv = raw.get("activitiesLog", "")
+    trade_history  = raw.get("tradeHistory", [])
+    logs_raw       = raw.get("logs", [])
+
+    # ── Parse activities CSV ──────────────────────────────────────────────────
+    by_product: dict[str, list[dict]] = {}
+    reader = csv.DictReader(StringIO(activities_csv), delimiter=";")
+    for row in reader:
+        p = row.get("product", "")
+        if not p:
+            continue
+        by_product.setdefault(p, []).append(row)
+
+    # ── Derive dominant day ───────────────────────────────────────────────────
+    dominant_day = 0
+    for rows in by_product.values():
+        if rows:
+            dominant_day = _i(rows[0].get("day", "0"))
+            break
+
+    # ── Build trade map for quick lookup: (ts) → list of trades ──────────────
+    trade_map: dict[int, list[dict]] = {}
+    for t in trade_history:
+        ts_t = _i(t.get("timestamp", 0))
+        trade_map.setdefault(ts_t, []).append(t)
+
+    # ── Algorithm logs map: ts → list of strings ─────────────────────────────
+    algo_map: dict[int, list[str]] = {}
+    for entry in logs_raw:
+        ts_e = _i(entry.get("timestamp") or 0)
+        txt  = (entry.get("lambdaLog") or "").strip()
+        sb   = (entry.get("sandboxLog") or "").strip()
+        combined = "\n".join(x for x in [txt, sb] if x)
+        if combined:
+            algo_map.setdefault(ts_e, []).append(combined)
+
+    # ── Per-product rolling history (for z-score / range-pos) ────────────────
+    WINDOW = 60
+    history_buf: dict[str, list[float]] = {}
+
+    # ── Per-product running position ──────────────────────────────────────────
+    running_pos: dict[str, int] = {}
+
+    # Sort trades by ts so we can sweep them
+    own_trades_sorted = sorted(
+        [t for t in trade_history if t.get("buyer") == "SUBMISSION" or t.get("seller") == "SUBMISSION"],
+        key=lambda t: _i(t.get("timestamp", 0))
+    )
+    trade_ptr = 0
+
+    # ── Running sigma EMA ─────────────────────────────────────────────────────
+    sigma_ema = _SIGMA_INIT
+
+    # ── Collect all unique timestamps across products ─────────────────────────
+    all_ts_sorted: list[int] = []
+    ts_to_rows: dict[int, dict[str, dict]] = {}  # ts → {product: row}
+    for p, rows in by_product.items():
+        for row in rows:
+            ts = _i(row.get("timestamp", "0"))
+            ts_to_rows.setdefault(ts, {})[p] = row
+            all_ts_sorted.append(ts)
+    all_ts_sorted = sorted(set(all_ts_sorted))
+
+    limits = _position_limits()
+    products_sorted = sorted(by_product.keys())
+
+    lines: list[str] = []
+
+    # ── Header ────────────────────────────────────────────────────────────────
+    lines.append("=" * 100)
+    lines.append("  IMC PROSPERITY — BACKTESTER ANALYSIS LOG")
+    lines.append(f"  Run ID   : {run_meta.get('run_id', 'unknown')}")
+    lines.append(f"  Name     : {run_meta.get('name', 'unknown')}")
+    lines.append(f"  Dataset  : {run_meta.get('dataset', 'unknown')}")
+    lines.append(f"  Day      : {run_meta.get('day', dominant_day)}")
+    lines.append(f"  Products : {', '.join(products_sorted)}")
+    lines.append(f"  Ticks    : {len(all_ts_sorted):,}")
+    lines.append(f"  PnL      : {run_meta.get('final_pnl', 0):+.2f}")
+    lines.append(f"  Generated: {datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')}")
+    lines.append("=" * 100)
+    lines.append("")
+    lines.append("  FORMAT KEY:")
+    lines.append("  ┌─ DAY·TIMESTAMP  ──────────────────────────────────────────────────────────┐")
+    lines.append("  │  For each product: core signal, microstructure, risk, options, execution  │")
+    lines.append("  └───────────────────────────────────────────────────────────────────────────┘")
+    lines.append("")
+
+    # ── Per-tick loop ─────────────────────────────────────────────────────────
+    for ts in all_ts_sorted:
+        prod_rows = ts_to_rows.get(ts, {})
+
+        # Apply own trades up to this ts (position tracking)
+        while trade_ptr < len(own_trades_sorted):
+            t = own_trades_sorted[trade_ptr]
+            if _i(t.get("timestamp", 0)) > ts:
+                break
+            sym = t.get("symbol", "")
+            qty = _i(t.get("quantity", 0))
+            if t.get("buyer") == "SUBMISSION":
+                running_pos[sym] = running_pos.get(sym, 0) + qty
+            else:
+                running_pos[sym] = running_pos.get(sym, 0) - qty
+            trade_ptr += 1
+
+        # Derive day from first available row at this ts
+        day_here = dominant_day
+        for p in products_sorted:
+            if p in prod_rows:
+                day_here = _i(prod_rows[p].get("day", dominant_day))
+                break
+
+        lines.append("─" * 100)
+        lines.append(f"  DAY {day_here}  ·  TIMESTAMP {ts}")
+        lines.append("─" * 100)
+
+        # Gather VEV spot for options calculations
+        vev_spot: float | None = None
+        if "VELVETFRUIT_EXTRACT" in prod_rows:
+            r = prod_rows["VELVETFRUIT_EXTRACT"]
+            bp1 = _f(r.get("bid_price_1"))
+            ap1 = _f(r.get("ask_price_1"))
+            if bp1 > 0 and ap1 > 0:
+                vev_spot = 0.5 * (bp1 + ap1)
+
+        # Update sigma EMA from vouchers if spot available
+        T_now = max(0.001, _T_INIT - ts / 1_000_000.0)
+        if vev_spot and vev_spot > 0:
+            ivs_now = []
+            for K in _SIGMA_STRIKES:
+                sym_k = f"VEV_{K}"
+                if sym_k in prod_rows:
+                    rk = prod_rows[sym_k]
+                    bpk = _f(rk.get("bid_price_1"))
+                    apk = _f(rk.get("ask_price_1"))
+                    if bpk > 0 and apk > 0:
+                        mid_k = 0.5 * (bpk + apk)
+                        iv = _implied_vol(vev_spot, K, T_now, mid_k)
+                        if iv:
+                            ivs_now.append(iv)
+            if ivs_now:
+                raw_sig = sum(ivs_now) / len(ivs_now)
+                sigma_ema = max(0.005, min(0.15, 0.05 * raw_sig + 0.95 * sigma_ema))
+
+        # Trades at this tick
+        tick_trades = [t for t in trade_history if _i(t.get("timestamp", 0)) == ts]
+        own_tick    = [t for t in tick_trades if t.get("buyer") == "SUBMISSION" or t.get("seller") == "SUBMISSION"]
+
+        # ── Per-product sections ──────────────────────────────────────────────
+        for p in products_sorted:
+            if p not in prod_rows:
+                continue
+            row  = prod_rows[p]
+            lim  = limits.get(p, 100)
+            pos  = running_pos.get(p, 0)
+            bp1  = _f(row.get("bid_price_1"))
+            bv1  = _i(row.get("bid_volume_1"))
+            bp2  = _f(row.get("bid_price_2"))
+            bv2  = _i(row.get("bid_volume_2"))
+            bp3  = _f(row.get("bid_price_3"))
+            bv3  = _i(row.get("bid_volume_3"))
+            ap1  = _f(row.get("ask_price_1"))
+            av1  = _i(row.get("ask_volume_1"))
+            ap2  = _f(row.get("ask_price_2"))
+            av2  = _i(row.get("ask_volume_2"))
+            ap3  = _f(row.get("ask_price_3"))
+            av3  = _i(row.get("ask_volume_3"))
+            mid  = _f(row.get("mid_price"))
+            pnl  = _f(row.get("profit_and_loss"))
+
+            spread   = (ap1 - bp1) if ap1 > 0 and bp1 > 0 else 0.0
+            tot_vol  = bv1 + av1
+            micro    = (ap1 * bv1 + bp1 * av1) / tot_vol if tot_vol > 0 and bp1 > 0 and ap1 > 0 else mid
+            total_ob = bv1 + bv2 + bv3 + av1 + av2 + av3
+            pressure = (av1 + av2 + av3) / total_ob if total_ob > 0 else 0.5
+            rem_buy  = lim - pos
+            rem_sell = lim + pos
+            inv_skew = pos / lim if lim > 0 else 0.0  # ∈ [-1, +1]
+
+            # Z-score / range pos
+            hist = history_buf.get(p, [])
+            if mid > 0:
+                z, sma, std = _compute_z_score(hist, mid)
+                rp, r_lo, r_hi = _range_pos(hist, mid)
+                # Warm-up: need at least 10 samples
+                if len(hist) < 10:
+                    z = sma = std = rp = r_lo = r_hi = 0.0
+                history_buf.setdefault(p, [])
+                history_buf[p].append(mid)
+                if len(history_buf[p]) > WINDOW:
+                    history_buf[p] = history_buf[p][-WINDOW:]
+            else:
+                z = sma = std = rp = r_lo = r_hi = 0.0
+
+            # Inventory skew multipliers (same as ZScoreTrader)
+            buy_mult  = max(0.0, 1.0 - pos / lim) if lim > 0 else 0.0
+            sell_mult = max(0.0, 1.0 + pos / lim) if lim > 0 else 0.0
+            strength  = min(1.0, max(0.0, abs(z) - 1.2) / max(0.5, 1.2)) if abs(z) > 1.2 else 0.0
+            trade_frac = 0.35 + 0.55 * strength
+
+            # Joiner levels (BB+1 / BA-1)
+            joiner_bid = int(bp1 + 1) if bp1 > 0 else None
+            joiner_ask = int(ap1 - 1) if ap1 > 0 else None
+            join_valid = joiner_bid is not None and joiner_ask is not None and joiner_bid < joiner_ask
+
+            lines.append(f"")
+            lines.append(f"  ┌── {p} {'─' * max(0, 70 - len(p))}")
+
+            # ── CORE SIGNAL METRICS ──────────────────────────────────────────
+            lines.append(f"  │  📊 CORE SIGNAL METRICS")
+            lines.append(f"  │     Mid Price      : {mid:.4f}")
+            lines.append(f"  │     Z-Score        : {z:+.4f}  {'▲ OVERBOUGHT' if z > 1.2 else ('▼ OVERSOLD' if z < -1.2 else '─ NEUTRAL')}")
+            lines.append(f"  │     SMA ({WINDOW:2d})       : {sma:.4f}")
+            lines.append(f"  │     Std Deviation  : {std:.4f}")
+            lines.append(f"  │     Range Position : {rp:.3f}  (low={r_lo:.2f} | high={r_hi:.2f})")
+            lines.append(f"  │     PnL            : {pnl:+.2f}")
+
+            # ── MARKET MICROSTRUCTURE ────────────────────────────────────────
+            lines.append(f"  │  📈 MARKET MICROSTRUCTURE")
+            bid_str = f"{bp1:.1f} (x{bv1})" if bp1 > 0 else "—"
+            ask_str = f"{ap1:.1f} (x{av1})" if ap1 > 0 else "—"
+            lines.append(f"  │     Best Bid       : {bid_str}")
+            lines.append(f"  │     Best Ask       : {ask_str}")
+            lines.append(f"  │     Spread         : {spread:.2f}")
+            lines.append(f"  │     Microprice     : {micro:.4f}")
+            lines.append(f"  │     Market Pressure: {pressure:.1%}  ({'ASKS HEAVY' if pressure > 0.6 else ('BIDS HEAVY' if pressure < 0.4 else 'BALANCED')})")
+            if bp2 > 0 or ap2 > 0:
+                lines.append(f"  │     OB L2 Bid      : {bp2:.1f} (x{bv2})  Ask: {ap2:.1f} (x{av2})")
+            if bp3 > 0 or ap3 > 0:
+                lines.append(f"  │     OB L3 Bid      : {bp3:.1f} (x{bv3})  Ask: {ap3:.1f} (x{av3})")
+            lines.append(f"  │     Total OB Depth : {total_ob} units")
+
+            # ── RISK & POSITION ──────────────────────────────────────────────
+            lines.append(f"  │  ⚖️  RISK & POSITION")
+            lines.append(f"  │     Position       : {pos:+d}  /  limit ±{lim}")
+            lines.append(f"  │     Rem Buy Cap    : {rem_buy}")
+            lines.append(f"  │     Rem Sell Cap   : {rem_sell}")
+            lines.append(f"  │     Inventory Skew : {inv_skew:+.3f}  (buy_mult={buy_mult:.3f}  sell_mult={sell_mult:.3f})")
+
+            # ── OPTIONS METRICS (vouchers + VEV) ────────────────────────────
+            is_voucher = p in _VOUCHER_STRIKES
+            if is_voucher and vev_spot and vev_spot > 0:
+                K_strike = _VOUCHER_STRIKES[p]
+                bs_price = _bs_call(vev_spot, K_strike, T_now, sigma_ema)
+                delta    = _bs_delta(vev_spot, K_strike, T_now, sigma_ema)
+                iv_here  = _implied_vol(vev_spot, K_strike, T_now, mid) if mid > 0 else None
+                moneyness = "DEEP ITM" if vev_spot > K_strike * 1.05 else ("DEEP OTM" if vev_spot < K_strike * 0.95 else "ATM")
+                lines.append(f"  │  💰 OPTIONS METRICS")
+                lines.append(f"  │     Underlying (VEV): {vev_spot:.2f}")
+                lines.append(f"  │     Strike         : {K_strike}  ({moneyness})")
+                lines.append(f"  │     Time to Expiry : {T_now:.4f}  (T_INIT={_T_INIT})")
+                lines.append(f"  │     Sigma EMA      : {sigma_ema:.5f}")
+                lines.append(f"  │     BS Call Price  : {bs_price:.4f}")
+                lines.append(f"  │     BS Delta       : {delta:.4f}")
+                lines.append(f"  │     Implied Vol    : {f'{iv_here:.5f}' if iv_here else '— (no IV, at/below intrinsic)'}")
+
+            # ── EXECUTION METRICS ────────────────────────────────────────────
+            lines.append(f"  │  ⚡ EXECUTION METRICS")
+            lines.append(f"  │     Strength Scale : {strength:.4f}")
+            lines.append(f"  │     Trade Size Frac: {trade_frac:.4f}  (buy_adj={trade_frac*buy_mult:.4f}  sell_adj={trade_frac*sell_mult:.4f})")
+            lines.append(f"  │     Max OB Levels  : 4")
+            z_entry = 1.2 if p == "HYDROGEL_PACK" else 1.3
+            z_exit  = 0.3
+            if abs(z) > z_entry:
+                regime = f"AGGRESSIVE {'BUY' if z < 0 else 'SELL'}"
+            elif abs(z) <= z_exit:
+                regime = "FLATTEN / MEAN-REVERT"
+            else:
+                regime = "PASSIVE MAKER"
+            lines.append(f"  │     Signal Regime  : {regime}  (z_entry={z_entry}  z_exit={z_exit})")
+
+            # ── MARKET MAKING ────────────────────────────────────────────────
+            lines.append(f"  │  🏦 MARKET MAKING")
+            if is_voucher and vev_spot and vev_spot > 0:
+                bs_price = _bs_call(vev_spot, _VOUCHER_STRIKES[p], T_now, sigma_ema)
+                make_half = 2.0
+                raw_bid_v = int(math.floor(bs_price - make_half))
+                raw_ask_v = int(math.ceil(bs_price + make_half))
+                make_bid_v = min(raw_bid_v, int(ap1) - 1) if ap1 > 0 else raw_bid_v
+                make_ask_v = max(raw_ask_v, int(bp1) + 1) if bp1 > 0 else raw_ask_v
+                lines.append(f"  │     BS Fair Value  : {bs_price:.4f}")
+                lines.append(f"  │     Make Half-Sprd : ±{make_half}")
+                lines.append(f"  │     Quote Bid      : {make_bid_v}  (raw={raw_bid_v})")
+                lines.append(f"  │     Quote Ask      : {make_ask_v}  (raw={raw_ask_v})")
+            else:
+                lines.append(f"  │     Spread (fair)  : ±1.5 ticks around mid ({mid:.2f})")
+                if join_valid:
+                    lines.append(f"  │     Joiner BB+1    : {joiner_bid}  (best_bid={int(bp1)})")
+                    lines.append(f"  │     Joiner BA-1    : {joiner_ask}  (best_ask={int(ap1)})")
+                    lines.append(f"  │     Join Spread    : {joiner_ask - joiner_bid} ticks (inside spread)")
+                elif bp1 > 0 and ap1 > 0:
+                    lines.append(f"  │     Joiner        : tight spread → sit at BB/BA  ({int(bp1)}/{int(ap1)})")
+
+            lines.append(f"  └{'─' * 80}")
+
+        # ── Own fills at this tick ────────────────────────────────────────────
+        own_here = [t for t in own_tick]
+        if own_here:
+            lines.append(f"")
+            lines.append(f"  💹 FILLS AT TS={ts}")
+            for t in own_here:
+                side = "BUY " if t.get("buyer") == "SUBMISSION" else "SELL"
+                lines.append(f"     {side}  {t.get('symbol','?')}  qty={t.get('quantity','?')}  @{_f(t.get('price',0)):.1f}")
+
+        # ── Algorithm logs at this tick ───────────────────────────────────────
+        algo_here = algo_map.get(ts, [])
+        if algo_here:
+            lines.append(f"")
+            lines.append(f"  📝 ALGO LOGS AT TS={ts}")
+            for txt in algo_here:
+                for ln in txt.splitlines():
+                    lines.append(f"     {ln}")
+
+        lines.append("")
+
+    # ── Footer ────────────────────────────────────────────────────────────────
+    lines.append("=" * 100)
+    lines.append(f"  FINAL SUMMARY")
+    lines.append(f"  Run   : {run_meta.get('run_id','?')}  ·  {run_meta.get('name','?')}")
+    lines.append(f"  PnL   : {run_meta.get('final_pnl', 0):+.2f}")
+    pnl_bp = run_meta.get("final_pnl_by_product", {})
+    if pnl_bp:
+        for prod, v in sorted(pnl_bp.items()):
+            lines.append(f"          {prod:30s}: {v:+.2f}")
+    lines.append(f"  Ticks : {len(all_ts_sorted):,}")
+    lines.append(f"  Trades: {len(own_trades_sorted)}")
+    lines.append("=" * 100)
+
+    return "\n".join(lines) + "\n"
+
+
 # ── Routes ─────────────────────────────────────────────────────────────────────
 
 @app.route("/")
@@ -581,6 +1020,49 @@ def delete_run(run_id):
         if d.is_dir():
             shutil.rmtree(d, ignore_errors=True)
     return jsonify({"ok": True})
+
+
+@app.route("/api/runs/<run_id>/download-log")
+def download_analysis_log(run_id):
+    """Generate and stream a rich per-tick analysis log for the given run."""
+    # Find run metadata from store
+    store = load_store()
+    run_meta = next((r for r in store["runs"] if r["run_id"] == run_id), {})
+    run_meta["run_id"] = run_id  # ensure present even if not in store
+
+    def day_sort_key(p: Path) -> int:
+        name = p.name
+        if "-d" in name:
+            try: return int(name.split("-d")[-1])
+            except: pass
+        return 999
+
+    day_dirs = sorted(
+        [d for d in RUNS_DIR.glob(f"{run_id}*") if d.is_dir()],
+        key=day_sort_key
+    )
+    if not day_dirs:
+        return jsonify({"error": f"No run directory for {run_id}"}), 404
+
+    log_parts: list[str] = []
+    for d in day_dirs:
+        lp = d / "submission.log"
+        if lp.exists():
+            part = generate_analysis_log(lp, run_meta)
+            log_parts.append(part)
+
+    if not log_parts:
+        return jsonify({"error": "No submission.log found for this run"}), 404
+
+    full_log = "\n".join(log_parts)
+    name_slug = re.sub(r"[^a-zA-Z0-9_-]", "_", run_meta.get("name", run_id))[:40]
+    filename  = f"analysis_{name_slug}_{run_id}.log"
+
+    return Response(
+        full_log,
+        mimetype="text/plain",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @app.route("/api/runs/<run_id>/data")
@@ -807,6 +1289,67 @@ def tune_cancel(job_id):
     if job:
         job["cancelled"] = True
     return jsonify({"ok": True})
+
+
+@app.route("/api/explore/data")
+def explore_data():
+    """Return raw tick-by-tick price data from a dataset CSV for the Trend Explorer."""
+    dataset = request.args.get("dataset", "").strip()
+    day_str  = request.args.get("day", "").strip()
+    if not dataset:
+        return jsonify({"error": "dataset param required"}), 400
+
+    ds_folder = REPO_ROOT / "datasets" / dataset
+    if not ds_folder.exists():
+        return jsonify({"error": f"Dataset folder '{dataset}' not found"}), 404
+
+    csvs = sorted(ds_folder.glob("prices_*.csv"))
+    if not csvs:
+        return jsonify({"error": f"No prices_*.csv found in '{dataset}'"}), 404
+
+    # Match by day suffix
+    target = None
+    if day_str:
+        for c in csvs:
+            if f"_day_{day_str}" in c.stem:
+                target = c
+                break
+    if target is None:
+        target = csvs[0]
+
+    by_product: dict = {}
+    with open(target, newline="", encoding="utf-8") as f:
+        reader = csv.DictReader(f, delimiter=";")
+        for row in reader:
+            p = row.get("product", "")
+            if not p:
+                continue
+            entry = {
+                "ts":  _i(row.get("timestamp")),
+                "day": _i(row.get("day")),
+                "bp1": _f(row.get("bid_price_1")),  "bv1": _i(row.get("bid_volume_1")),
+                "bp2": _f(row.get("bid_price_2")),  "bv2": _i(row.get("bid_volume_2")),
+                "bp3": _f(row.get("bid_price_3")),  "bv3": _i(row.get("bid_volume_3")),
+                "ap1": _f(row.get("ask_price_1")),  "av1": _i(row.get("ask_volume_1")),
+                "ap2": _f(row.get("ask_price_2")),  "av2": _i(row.get("ask_volume_2")),
+                "ap3": _f(row.get("ask_price_3")),  "av3": _i(row.get("ask_volume_3")),
+                "mid": _f(row.get("mid_price")),
+                "pnl": _f(row.get("profit_and_loss")),
+            }
+            by_product.setdefault(p, []).append(entry)
+
+    day_actual = _i(day_str) if day_str else (
+        _i(target.stem.split("_day_")[-1]) if "_day_" in target.stem else 0
+    )
+    tick_counts = {p: len(v) for p, v in by_product.items()}
+    return jsonify({
+        "dataset": dataset,
+        "day":     day_actual,
+        "file":    target.name,
+        "products": sorted(by_product.keys()),
+        "tick_counts": tick_counts,
+        "data":    by_product,
+    })
 
 
 if __name__ == "__main__":

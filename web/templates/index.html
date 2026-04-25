@@ -141,6 +141,11 @@ html,body{background:var(--bg);color:var(--tx);font-family:var(--font);font-size
 .delbtn{background:transparent;border:none;cursor:pointer;font-size:14px;color:var(--mt);
   line-height:1;padding:0 2px;flex-shrink:0;transition:color .1s}
 .delbtn:hover{color:var(--red)}
+.dlbtn{background:transparent;border:1px solid var(--bdr2);border-radius:4px;cursor:pointer;
+  font-size:10px;font-weight:700;color:var(--mt);padding:2px 6px;flex-shrink:0;
+  transition:all .15s;line-height:1.4;letter-spacing:.2px}
+.dlbtn:hover{background:#e8f4fd;border-color:#0550ae;color:#0550ae}
+.dlbtn.loading{opacity:.5;cursor:not-allowed}
 .shint{font-size:10px;color:var(--mt);padding:5px 13px;border-top:1px solid var(--bdr);font-style:italic}
 .nostrat{padding:16px 13px;font-size:11px;color:var(--mt);text-align:center}
 
@@ -278,6 +283,146 @@ html,body{background:var(--bg);color:var(--tx);font-family:var(--font);font-size
 .tune-progress-fill{height:100%;border-radius:2px;background:#0550ae;
   transition:width .35s ease}
 ::-webkit-scrollbar{width:5px;height:5px}::-webkit-scrollbar-thumb{background:var(--bdr2);border-radius:3px}
+
+/* ── Trend Explorer ──────────────────────────────────────────────────────────── */
+.texpl-section{max-width:1480px;margin:11px auto 0;padding:0 18px 40px}
+.texpl-hdr{display:flex;align-items:center;gap:10px;padding:11px 16px;
+  background:var(--card);border:1px solid var(--bdr);border-radius:var(--r) var(--r) 0 0;
+  cursor:pointer;user-select:none;transition:background .1s}
+.texpl-hdr:hover{background:#f6f8fa}
+.texpl-ico{font-size:16px}
+.texpl-ttl{font-size:14px;font-weight:700}
+.texpl-sub{font-size:11px;color:var(--mt);flex:1}
+.texpl-toggle{margin-left:auto;background:transparent;border:1px solid var(--bdr2);border-radius:5px;
+  padding:3px 11px;font-size:11px;font-weight:700;cursor:pointer;color:var(--mt)}
+.texpl-toggle:hover{background:#f0f2f5}
+.texpl-body{background:var(--card);border:1px solid var(--bdr);border-top:none;
+  border-radius:0 0 var(--r) var(--r);padding:14px 16px 18px}
+.texpl-ctrl{display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  padding-bottom:12px;border-bottom:1px solid var(--bdr);margin-bottom:12px}
+.texpl-ctrl-group{display:flex;flex-direction:column;gap:3px}
+.texpl-ctrl-group label{font-size:10px;font-weight:700;letter-spacing:.5px;
+  text-transform:uppercase;color:var(--lbl)}
+.texpl-ctrl-group select{padding:5px 8px;border:1px solid var(--bdr2);border-radius:5px;
+  font-size:12px;color:var(--tx);background:#fff;min-width:130px}
+.texpl-load-btn{padding:6px 16px;background:#0550ae;color:#fff;border:none;border-radius:6px;
+  font-size:12px;font-weight:700;cursor:pointer;align-self:flex-end}
+.texpl-load-btn:hover{opacity:.85}
+.texpl-load-btn:disabled{opacity:.5;cursor:not-allowed}
+.texpl-status{font-size:11px;color:var(--mt);align-self:flex-end;flex:1}
+.texpl-main{display:grid;grid-template-columns:1fr 290px;gap:12px;align-items:start}
+@media(max-width:1100px){.texpl-main{grid-template-columns:1fr}}
+.texpl-charts{display:flex;flex-direction:column;gap:8px}
+.ex-prod-pill{padding:4px 12px;border-radius:20px;font-size:10px;font-weight:700;
+  letter-spacing:.3px;border:1px solid var(--bdr2);background:var(--card);
+  color:var(--mt);cursor:pointer;text-transform:uppercase;transition:all .1s;white-space:nowrap}
+.ex-prod-pill:hover{border-color:var(--tx);color:var(--tx)}
+.ex-prod-pill.on{background:#24292f;border-color:#24292f;color:#fff}
+.texpl-prod-row{display:flex;gap:6px;flex-wrap:wrap;padding-bottom:8px}
+.texpl-chart-wrap{border:1px solid var(--bdr);border-radius:6px;overflow:hidden}
+.texpl-chart-hdr{display:flex;align-items:center;gap:8px;padding:7px 12px;
+  border-bottom:1px solid var(--bdr);background:#fafbfc}
+.texpl-chart-ttl{font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--lbl)}
+.texpl-chart-sub{font-size:10px;color:var(--mt)}
+.texpl-tick-ctrl{display:flex;align-items:center;gap:8px;padding:6px 0}
+.texpl-tick-lbl{font-size:10px;font-weight:700;color:var(--lbl);letter-spacing:.4px;
+  text-transform:uppercase;white-space:nowrap;min-width:30px}
+.texpl-tick-ctrl input[type=range]{flex:1;accent-color:#0550ae}
+.ex-vals-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:6px}
+.ex-val-cell{background:#f8f9fa;border:1px solid var(--bdr);border-radius:5px;padding:5px 8px}
+.ex-val-lbl{font-size:9px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--lbl);margin-bottom:2px}
+.ex-val-v{font-size:13px;font-weight:700;font-variant-numeric:tabular-nums}
+/* Builder panel */
+.texpl-builder{border:1px solid var(--bdr);border-radius:var(--r);overflow:hidden;
+  background:var(--card);display:flex;flex-direction:column;gap:0}
+.texpl-bld-hdr{font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;
+  color:var(--lbl);padding:9px 13px;border-bottom:1px solid var(--bdr);background:#fafbfc}
+.texpl-bld-row{display:flex;align-items:center;gap:8px;padding:5px 13px;border-bottom:1px solid var(--bdr)}
+.texpl-bld-lbl{font-size:10px;font-weight:700;color:var(--lbl);letter-spacing:.3px;
+  text-transform:uppercase;min-width:78px;flex-shrink:0}
+.texpl-bld-row select,.texpl-bld-row input[type=number]{flex:1;padding:4px 7px;
+  border:1px solid var(--bdr2);border-radius:4px;font-size:12px;color:var(--tx);background:#fff}
+.texpl-add-btn{margin:10px 13px 4px;padding:7px;background:#0550ae;color:#fff;border:none;
+  border-radius:6px;font-size:12px;font-weight:700;cursor:pointer}
+.texpl-add-btn:hover{opacity:.85}
+.texpl-err{padding:0 13px 6px;font-size:11px;color:var(--red)}
+.texpl-active-hdr{font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;
+  color:var(--lbl);padding:8px 13px 5px;border-top:1px solid var(--bdr);margin-top:4px}
+.ex-fml-item{display:flex;align-items:center;gap:6px;padding:5px 13px;
+  border-bottom:1px solid var(--bdr);font-size:11px}
+.ex-fml-item:last-child{border-bottom:none}
+.ex-fml-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.ex-fml-name{flex:1;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.ex-fml-val{font-size:11px;font-weight:700;font-variant-numeric:tabular-nums;
+  color:var(--mt);min-width:62px;text-align:right;flex-shrink:0}
+.ex-fml-rm{background:transparent;border:none;cursor:pointer;font-size:15px;color:var(--mt);
+  padding:0 2px;flex-shrink:0;line-height:1;transition:color .1s}
+.ex-fml-rm:hover{color:var(--red)}
+.texpl-eq-box{margin:8px 13px;padding:8px 10px;background:#f0f6ff;border:1px solid #c8d9f0;
+  border-radius:5px;font-size:11px;color:#0550ae;line-height:1.6;display:none}
+.texpl-eq-box:not(:empty){display:block}
+
+/* ── Strategy Simulator ────────────────────────────────────────────────────── */
+.sim-section{margin-top:14px;border-top:2px solid var(--bdr);padding-top:14px}
+.sim-hdr{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.sim-hdr-ico{font-size:16px}
+.sim-hdr-ttl{font-size:13px;font-weight:700}
+.sim-hdr-sub{font-size:11px;color:var(--mt)}
+.sim-grid{display:grid;grid-template-columns:1fr 260px;gap:12px;align-items:start}
+@media(max-width:1100px){.sim-grid{grid-template-columns:1fr}}
+.sim-builder{display:flex;flex-direction:column;gap:8px}
+.sim-cond-group{display:flex;flex-direction:column;gap:0;border:1px solid var(--bdr2);border-radius:7px;overflow:hidden}
+.sim-cond-group-hdr{display:flex;align-items:center;gap:8px;padding:6px 10px;background:#f8f9fa;border-bottom:1px solid var(--bdr)}
+.sim-cond-group-lbl{font-size:11px;font-weight:700;padding:3px 10px;border-radius:4px}
+.sim-cond-group-lbl.buy{background:#dafbe1;color:#1a7f37}
+.sim-cond-group-lbl.sell{background:#ffeef0;color:#cf222e}
+.sim-cond-group-lbl.flat{background:#fff3cd;color:#856404}
+.sim-cond-group-hdr-hint{font-size:10px;color:var(--mt);flex:1}
+.sim-cond-group-add{background:transparent;border:1px solid var(--bdr2);border-radius:4px;
+  font-size:11px;font-weight:700;padding:2px 9px;cursor:pointer;color:#0550ae;white-space:nowrap}
+.sim-cond-group-add:hover{background:#f0f6ff;border-color:#0550ae}
+.sim-cond-line{display:flex;align-items:center;gap:6px;padding:5px 8px;border-bottom:1px solid var(--bdr)}
+.sim-cond-line:last-child{border-bottom:none}
+.sim-op-toggle{font-size:10px;font-weight:700;min-width:38px;padding:3px 0;border-radius:4px;
+  cursor:pointer;border:1px solid var(--bdr2);background:var(--card);color:var(--mt);
+  text-align:center;flex-shrink:0;transition:all .1s;font-family:var(--mono)}
+.sim-op-toggle.or{background:#e8f4fd;border-color:#0550ae;color:#0550ae}
+.sim-op-toggle.and{background:#f0fff4;border-color:#1a7f37;color:#1a7f37}
+.sim-cond-inp{font-family:var(--mono);font-size:12px;padding:5px 8px;border:1px solid var(--bdr2);
+  border-radius:5px;color:var(--tx);background:#fff;flex:1;min-width:0}
+.sim-cond-inp:focus{outline:none;border-color:#0550ae;box-shadow:0 0 0 2px rgba(5,80,174,.1)}
+.sim-cond-rm{background:transparent;border:none;cursor:pointer;font-size:15px;color:var(--mt);
+  padding:0 3px;line-height:1;flex-shrink:0;transition:color .1s}
+.sim-cond-rm:hover{color:var(--red)}
+.sim-params-row{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end}
+.sim-param-g{display:flex;flex-direction:column;gap:3px}
+.sim-param-g label{font-size:10px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--lbl)}
+.sim-param-g select,.sim-param-g input[type=number]{padding:5px 7px;border:1px solid var(--bdr2);
+  border-radius:5px;font-size:12px;color:var(--tx);background:#fff;min-width:80px}
+.sim-presets{display:flex;gap:5px;flex-wrap:wrap}
+.sim-preset-btn{padding:3px 10px;border-radius:14px;font-size:10px;font-weight:700;cursor:pointer;
+  border:1px solid var(--bdr2);background:var(--card);color:var(--mt);transition:all .1s;white-space:nowrap}
+.sim-preset-btn:hover{border-color:#0550ae;color:#0550ae;background:#f0f6ff}
+.sim-run-btn{padding:7px 20px;background:#1a7f37;color:#fff;border:none;border-radius:6px;
+  font-size:12px;font-weight:700;cursor:pointer;align-self:flex-start}
+.sim-run-btn:hover{opacity:.85}
+.sim-run-btn:disabled{opacity:.5;cursor:not-allowed}
+.sim-var-ref{background:#f8f9fa;border:1px solid var(--bdr);border-radius:5px;
+  padding:7px 10px;font-size:10px;color:var(--mt);line-height:1.8}
+.sim-var-ref b{color:#0550ae;font-family:var(--mono)}
+.sim-err{font-size:11px;color:var(--red);margin-top:3px;min-height:16px}
+/* Stats panel */
+.sim-stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.sim-stat-card{background:#f8f9fa;border:1px solid var(--bdr);border-radius:6px;padding:8px 11px}
+.sim-stat-lbl{font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--lbl);margin-bottom:3px}
+.sim-stat-val{font-size:15px;font-weight:700;font-variant-numeric:tabular-nums}
+.sim-stat-sub{font-size:10px;color:var(--mt);margin-top:1px}
+/* Charts */
+.sim-charts{margin-top:10px;display:flex;flex-direction:column;gap:8px}
+.sim-chart-wrap{border:1px solid var(--bdr);border-radius:6px;overflow:hidden}
+.sim-chart-hdr{display:flex;align-items:center;gap:8px;padding:6px 12px;
+  border-bottom:1px solid var(--bdr);background:#fafbfc}
+.sim-chart-ttl{font-size:10px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--lbl)}
 
 /* ── Own-fills hover panel (custom overlay for buy/sell near cursor) ─────── */
 #pfh{position:fixed;pointer-events:none;z-index:2000;display:none;
@@ -497,6 +642,327 @@ html,body{background:var(--bg);color:var(--tx);font-family:var(--font);font-size
 </div>
 
 </div><!-- /body -->
+
+<!-- ═══ TREND EXPLORER ══════════════════════════════════════════════════════════ -->
+<div class="texpl-section" id="texpl-section">
+  <div class="texpl-hdr" onclick="texplToggle()">
+    <span class="texpl-ico">📉</span>
+    <div>
+      <div class="texpl-ttl">Trend Explorer</div>
+      <div class="texpl-sub">Add custom indicators &amp; equations on raw dataset ticks — no backtest needed</div>
+    </div>
+    <button class="texpl-toggle" id="texpl-toggle-btn">▼ EXPAND</button>
+  </div>
+  <div class="texpl-body" id="texpl-body" style="display:none">
+
+    <!-- Controls row -->
+    <div class="texpl-ctrl">
+      <div class="texpl-ctrl-group">
+        <label>Dataset</label>
+        <select id="ex-ds-sel" onchange="exUpdateDays()"></select>
+      </div>
+      <div class="texpl-ctrl-group">
+        <label>Day</label>
+        <select id="ex-day-sel"></select>
+      </div>
+      <div class="texpl-ctrl-group">
+        <label>Product (for options)</label>
+        <select id="ex-base-prod-sel"></select>
+      </div>
+      <button class="texpl-load-btn" id="ex-load-btn" onclick="exLoad()">&#9654; Load Data</button>
+      <span class="texpl-status" id="ex-status">Choose a dataset and day, then click Load.</span>
+    </div>
+
+    <!-- Main content -->
+    <div class="texpl-main" id="texpl-main" style="display:none">
+
+      <!-- Left: product selector + chart + tick slider + live values -->
+      <div class="texpl-charts">
+        <!-- Product selector pills -->
+        <div class="texpl-prod-row" id="ex-prod-row"></div>
+
+        <!-- Price chart -->
+        <div class="texpl-chart-wrap">
+          <div class="texpl-chart-hdr">
+            <span class="texpl-chart-ttl">PRICE &amp; INDICATORS: <span id="ex-chart-prod">—</span></span>
+            <span class="texpl-chart-sub" id="ex-chart-sub"></span>
+          </div>
+          <div id="ex-price-chart" style="height:380px"></div>
+        </div>
+
+        <!-- Secondary chart (z-score / delta / IV etc.) -->
+        <div class="texpl-chart-wrap" id="ex-sec-wrap" style="display:none">
+          <div class="texpl-chart-hdr">
+            <span class="texpl-chart-ttl" id="ex-sec-ttl">SECONDARY INDICATORS</span>
+          </div>
+          <div id="ex-sec-chart" style="height:200px"></div>
+        </div>
+
+        <!-- Tick scrubber -->
+        <div class="texpl-tick-ctrl">
+          <span class="texpl-tick-lbl">TICK</span>
+          <input type="range" id="ex-tick-sl" min="0" max="0" value="0" oninput="exOnTick(+this.value)"/>
+          <span style="font-size:11px;font-weight:700;color:var(--tx);min-width:100px" id="ex-tick-info">0 / 0</span>
+        </div>
+
+        <!-- Live value cells -->
+        <div class="ex-vals-grid" id="ex-vals-grid"></div>
+      </div>
+
+      <!-- Right: indicator builder panel -->
+      <div class="texpl-builder">
+        <div class="texpl-bld-hdr">➕ Add Indicator</div>
+
+        <div class="texpl-bld-row">
+          <span class="texpl-bld-lbl">Type</span>
+          <select id="ex-ind-type" onchange="exUpdateIndForm()">
+            <optgroup label="── Price Transforms">
+              <option value="sma">SMA — Simple Moving Avg</option>
+              <option value="ema">EMA — Exponential Moving Avg</option>
+              <option value="wma">WMA — Weighted Moving Avg</option>
+              <option value="dema">DEMA — Double EMA</option>
+              <option value="vwap">VWAP — Vol-Weighted Avg Price</option>
+              <option value="bollup">Bollinger Upper Band</option>
+              <option value="bolllo">Bollinger Lower Band</option>
+              <option value="bbw">Bollinger Band Width</option>
+            </optgroup>
+            <optgroup label="── Momentum / Oscillators">
+              <option value="zscore">Z-Score (vs SMA)</option>
+              <option value="rsi">RSI — Rel Strength Index</option>
+              <option value="roc">ROC — Rate of Change %</option>
+              <option value="rangepos">Range Position [0–1]</option>
+              <option value="momentum">Momentum (mid diff)</option>
+            </optgroup>
+            <optgroup label="── Spread / Microstructure">
+              <option value="spread">Bid-Ask Spread (ticks)</option>
+              <option value="microprice">Microprice (vol-weighted)</option>
+              <option value="pressure">Buy Pressure [0–1]</option>
+              <option value="obimbalance">OB Imbalance (L1)</option>
+            </optgroup>
+            <optgroup label="── Options (VEV vouchers)">
+              <option value="bs_price">Black-Scholes Call Price</option>
+              <option value="bs_delta">BS Delta</option>
+              <option value="bs_gamma">BS Gamma</option>
+              <option value="bs_vega">BS Vega</option>
+              <option value="bs_theta">BS Theta</option>
+              <option value="impl_vol">Implied Volatility</option>
+              <option value="sigma_ema">Sigma EMA (rolling IV)</option>
+              <option value="time_to_exp">Time to Expiry T</option>
+            </optgroup>
+            <optgroup label="── Custom / Composite">
+              <option value="fair_spread">Fair vs Mid (edge)</option>
+              <option value="inv_skew">Inventory Skew Multiplier</option>
+              <option value="custom_expr">Custom Expression</option>
+            </optgroup>
+          </select>
+        </div>
+
+        <!-- Dynamic param fields injected here -->
+        <div id="ex-ind-params"></div>
+
+        <!-- Equation preview -->
+        <div class="texpl-eq-box" id="ex-eq-box"></div>
+
+        <div class="texpl-err" id="ex-add-err"></div>
+        <button class="texpl-add-btn" onclick="exAddIndicator()">+ Add to Chart</button>
+
+        <!-- Active indicators list -->
+        <div class="texpl-active-hdr" id="ex-active-hdr" style="display:none">Active Indicators</div>
+        <div id="ex-ind-list"></div>
+      </div>
+
+    </div><!-- /texpl-main -->
+
+    <!-- ═══ STRATEGY SIMULATOR ════════════════════════════════════════════════ -->
+    <div class="sim-section" id="sim-section" style="display:none">
+      <div class="sim-hdr">
+        <span class="sim-hdr-ico">🧮</span>
+        <div>
+          <div class="sim-hdr-ttl">Strategy PnL Simulator</div>
+          <div class="sim-hdr-sub">Write buy/sell conditions using any active indicator, then simulate PnL tick-by-tick</div>
+        </div>
+      </div>
+
+      <div class="sim-grid">
+        <!-- Left: condition builder + charts -->
+        <div>
+          <!-- Preset strategies -->
+          <div style="margin-bottom:9px">
+            <div style="font-size:10px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--lbl);margin-bottom:5px">Quick Presets</div>
+            <div class="sim-presets" id="sim-presets">
+              <button class="sim-preset-btn" onclick="simApplyPreset('ema_cross')">EMA Crossover</button>
+              <button class="sim-preset-btn" onclick="simApplyPreset('micro_ema')">Microprice vs EMA</button>
+              <button class="sim-preset-btn" onclick="simApplyPreset('zscore_rev')">Z-Score Reversal</button>
+              <button class="sim-preset-btn" onclick="simApplyPreset('boll_bounce')">Bollinger Bounce</button>
+              <button class="sim-preset-btn" onclick="simApplyPreset('rsi_rev')">RSI Reversal</button>
+              <button class="sim-preset-btn" onclick="simApplyPreset('spread_arb')">Spread Fade</button>
+              <button class="sim-preset-btn" onclick="simApplyPreset('momentum_follow')">Momentum Follow</button>
+              <button class="sim-preset-btn" onclick="simApplyPreset('obimb')">OB Imbalance</button>
+            </div>
+          </div>
+
+          <!-- Condition builder: BUY -->
+          <div class="sim-cond-group" style="margin-bottom:8px">
+            <div class="sim-cond-group-hdr">
+              <span class="sim-cond-group-lbl buy">BUY when</span>
+              <span class="sim-cond-group-hdr-hint">Use: <code>and</code> / <code>or</code> / <code>&amp;&amp;</code> / <code>||</code> between rows</span>
+              <button class="sim-cond-group-add" onclick="simAddCondRow('buy')">+ Add condition</button>
+            </div>
+            <div id="sim-buy-rows"></div>
+          </div>
+
+          <!-- Condition builder: SELL -->
+          <div class="sim-cond-group" style="margin-bottom:8px">
+            <div class="sim-cond-group-hdr">
+              <span class="sim-cond-group-lbl sell">SELL when</span>
+              <span class="sim-cond-group-hdr-hint">Toggle AND / OR between each row</span>
+              <button class="sim-cond-group-add" onclick="simAddCondRow('sell')">+ Add condition</button>
+            </div>
+            <div id="sim-sell-rows"></div>
+          </div>
+
+          <!-- Condition builder: FLAT -->
+          <div class="sim-cond-group" style="margin-bottom:10px">
+            <div class="sim-cond-group-hdr">
+              <span class="sim-cond-group-lbl flat">FLAT when</span>
+              <span class="sim-cond-group-hdr-hint">Optional — flatten any open position</span>
+              <button class="sim-cond-group-add" onclick="simAddCondRow('flat')">+ Add condition</button>
+            </div>
+            <div id="sim-flat-rows"></div>
+          </div>
+
+          <!-- Execution params -->
+          <div class="sim-params-row" style="margin-bottom:10px">
+            <div class="sim-param-g">
+              <label>Position Limit</label>
+              <input type="number" id="sim-limit" value="80" min="1" max="500"/>
+            </div>
+            <div class="sim-param-g">
+              <label>Order Size</label>
+              <select id="sim-size-mode">
+                <option value="full">Full limit (max/min)</option>
+                <option value="half">Half limit</option>
+                <option value="frac">Fraction of rem cap</option>
+                <option value="fixed">Fixed qty</option>
+              </select>
+            </div>
+            <div class="sim-param-g" id="sim-fixed-g" style="display:none">
+              <label>Fixed Qty</label>
+              <input type="number" id="sim-fixed-qty" value="10" min="1" max="1000"/>
+            </div>
+            <div class="sim-param-g">
+              <label>Fill at</label>
+              <select id="sim-fill-mode">
+                <option value="mid">Mid price</option>
+                <option value="ask">Ask (buy) / Bid (sell)</option>
+                <option value="micro">Microprice</option>
+              </select>
+            </div>
+            <div class="sim-param-g">
+              <label>Fee per unit</label>
+              <input type="number" id="sim-fee" value="0" min="0" step="0.1"/>
+            </div>
+          </div>
+
+          <div class="sim-err" id="sim-err"></div>
+
+          <button class="sim-run-btn" id="sim-run-btn" onclick="simRun()">▶ Simulate PnL</button>
+
+          <!-- Charts (hidden until run) -->
+          <div class="sim-charts" id="sim-charts" style="display:none">
+            <div class="sim-chart-wrap">
+              <div class="sim-chart-hdr">
+                <span class="sim-chart-ttl">CUMULATIVE PNL</span>
+              </div>
+              <div id="sim-pnl-chart" style="height:220px"></div>
+            </div>
+            <div class="sim-chart-wrap">
+              <div class="sim-chart-hdr">
+                <span class="sim-chart-ttl">POSITION OVER TIME</span>
+              </div>
+              <div id="sim-pos-chart" style="height:150px"></div>
+            </div>
+            <div class="sim-chart-wrap">
+              <div class="sim-chart-hdr">
+                <span class="sim-chart-ttl">PRICE + TRADE SIGNALS</span>
+              </div>
+              <div id="sim-sig-chart" style="height:220px"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right: variable reference + stats -->
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <!-- Variable reference -->
+          <div class="sim-var-ref">
+            <div style="font-size:10px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--lbl);margin-bottom:5px">Available Variables</div>
+            <b>mid</b> — mid price<br>
+            <b>bp1</b> / <b>ap1</b> — best bid / ask<br>
+            <b>bv1</b> / <b>av1</b> — bid / ask volume<br>
+            <b>spread</b> — ap1 − bp1<br>
+            <b>micro</b> — microprice<br>
+            <b>ts</b> — timestamp<br>
+            <b>i</b> — tick index<br>
+            <b>pos</b> — current position<br>
+            <b>lim</b> — position limit<br>
+            <b>pnl</b> — running PnL<br>
+            <div style="margin-top:5px;color:#0550ae;font-weight:700;font-size:10px">Active Indicators →</div>
+            <div id="sim-ind-ref" style="margin-top:3px;line-height:2"></div>
+            <div style="margin-top:5px;font-style:italic;font-size:10px">Use any JS math: Math.abs(), &&, ||, ternary, etc.</div>
+          </div>
+
+          <!-- Stats (shown after run) -->
+          <div id="sim-stats" style="display:none">
+            <div style="font-size:10px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--lbl);margin-bottom:6px">Results</div>
+            <div class="sim-stats-grid">
+              <div class="sim-stat-card">
+                <div class="sim-stat-lbl">Final PnL</div>
+                <div class="sim-stat-val" id="ss-pnl">—</div>
+                <div class="sim-stat-sub">cumulative</div>
+              </div>
+              <div class="sim-stat-card">
+                <div class="sim-stat-lbl">Sharpe (approx)</div>
+                <div class="sim-stat-val" id="ss-sharpe">—</div>
+                <div class="sim-stat-sub">PnL / σ(PnL)</div>
+              </div>
+              <div class="sim-stat-card">
+                <div class="sim-stat-lbl">Max Drawdown</div>
+                <div class="sim-stat-val" id="ss-dd">—</div>
+                <div class="sim-stat-sub">peak-to-trough</div>
+              </div>
+              <div class="sim-stat-card">
+                <div class="sim-stat-lbl">Win Rate</div>
+                <div class="sim-stat-val" id="ss-wr">—</div>
+                <div class="sim-stat-sub">% ticks with +PnL</div>
+              </div>
+              <div class="sim-stat-card">
+                <div class="sim-stat-lbl">Total Trades</div>
+                <div class="sim-stat-val" id="ss-trades">—</div>
+                <div class="sim-stat-sub">position changes</div>
+              </div>
+              <div class="sim-stat-card">
+                <div class="sim-stat-lbl">Avg PnL/Trade</div>
+                <div class="sim-stat-val" id="ss-avg">—</div>
+                <div class="sim-stat-sub">per execution</div>
+              </div>
+              <div class="sim-stat-card">
+                <div class="sim-stat-lbl">Best Tick</div>
+                <div class="sim-stat-val" id="ss-best">—</div>
+                <div class="sim-stat-sub">single tick gain</div>
+              </div>
+              <div class="sim-stat-card">
+                <div class="sim-stat-lbl">Worst Tick</div>
+                <div class="sim-stat-val" id="ss-worst">—</div>
+                <div class="sim-stat-sub">single tick loss</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div><!-- /sim-section -->
+
+  </div><!-- /texpl-body -->
+</div><!-- /texpl-section -->
 
 <!-- ═══ UPLOAD MODAL ═══════════════════════════════════════════════════════════ -->
 <div class="ov" id="modal">
@@ -765,6 +1231,8 @@ function renderStratPanel(){
       <div class="sipnl ${pnl>=0?"pos":"neg"}">${pnl>=0?"+":""}${pnl.toFixed(1)}</div>
       <button class="cmpbtn${comparing?" on":""}"
         onclick="event.stopPropagation();toggleCmp('${r.run_id}')">${comparing?"COMPARING":"COMPARE"}</button>
+      <button class="dlbtn" id="dl-${r.run_id}"
+        onclick="event.stopPropagation();downloadLog('${r.run_id}')" title="Download analysis log">&#8595; LOG</button>
       <button class="delbtn" onclick="event.stopPropagation();deleteRun('${r.run_id}')" title="Delete">&times;</button>
     </div>`;
   }).join("");
@@ -779,6 +1247,34 @@ function toggleCmp(id){
   if(S.cmp.has(id)) S.cmp.delete(id); else S.cmp.add(id);
   document.getElementById("tracked").textContent=`${S.cmp.size} TRACKED`;
   renderStratPanel(); renderPnlChart(); renderPosChart(); renderSummary();
+}
+
+async function downloadLog(id){
+  const btn=document.getElementById(`dl-${id}`);
+  if(!btn||btn.classList.contains("loading")) return;
+  btn.classList.add("loading");
+  btn.textContent="…";
+  try{
+    const resp=await fetch(`/api/runs/${id}/download-log`);
+    if(!resp.ok){
+      const err=await resp.json().catch(()=>({error:"Server error"}));
+      alert("Log download failed: "+(err.error||resp.statusText));
+      return;
+    }
+    const blob=await resp.blob();
+    const disposition=resp.headers.get("Content-Disposition")||"";
+    const fnMatch=disposition.match(/filename="([^"]+)"/);
+    const filename=fnMatch?fnMatch[1]:`analysis_${id}.log`;
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement("a");
+    a.href=url; a.download=filename; a.click();
+    URL.revokeObjectURL(url);
+  }catch(e){
+    alert("Download error: "+e);
+  }finally{
+    btn.classList.remove("loading");
+    btn.innerHTML="&#8595; LOG";
+  }
 }
 
 async function deleteRun(id){
@@ -1482,6 +1978,1213 @@ async function api(url,opts={}){const r=await fetch(url,opts);if(!r.ok)throw new
 function esc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
 function rgba(hex,a){const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);return `rgba(${r},${g},${b},${a})`;}
 function mkEmpty(el,msg){return `<div class="empty" style="height:${el.style.height||'200px'}">${msg}</div>`;}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// TREND EXPLORER
+// ═════════════════════════════════════════════════════════════════════════════
+
+const EX = {
+  data:       null,   // raw API response {products, data:{prod:[ticks]}}
+  prod:       null,   // selected product
+  indicators: [],     // [{id, type, label, params, color, secondary}]
+  tickIdx:    0,
+  nextId:     0,
+  priceChart: null,
+  secChart:   null,
+};
+
+const EX_COLORS = [
+  "#e67e22","#9b59b6","#1abc9c","#e74c3c","#3498db",
+  "#2ecc71","#f39c12","#16a085","#8e44ad","#c0392b",
+  "#d35400","#27ae60","#2980b9","#7f8c8d","#f1c40f",
+];
+
+// ── Toggle collapse ──────────────────────────────────────────────────────────
+let texplOpen = false;
+function texplToggle(){
+  texplOpen = !texplOpen;
+  document.getElementById("texpl-body").style.display = texplOpen ? "" : "none";
+  document.getElementById("texpl-toggle-btn").textContent = texplOpen ? "▲ COLLAPSE" : "▼ EXPAND";
+  if(texplOpen && Object.keys(DS_MAP).length) exPopulateDatasets();
+}
+
+function exPopulateDatasets(){
+  const sel = document.getElementById("ex-ds-sel");
+  if(sel.options.length > 0) return; // already populated
+  sel.innerHTML = Object.values(DS_MAP).map(d=>{
+    const l = d.id.replace(/_/g," ").replace(/\b\w/g,c=>c.toUpperCase());
+    return `<option value="${d.id}">${l}</option>`;
+  }).join("");
+  exUpdateDays();
+}
+
+function exUpdateDays(){
+  const dsId = document.getElementById("ex-ds-sel").value;
+  const ds   = DS_MAP[dsId];
+  const sel  = document.getElementById("ex-day-sel");
+  sel.innerHTML = (ds?.days||[]).sort((a,b)=>a-b).map(d=>
+    `<option value="${d}">Day ${d}</option>`
+  ).join("") || `<option value="0">Day 0</option>`;
+}
+
+// ── Load raw dataset ─────────────────────────────────────────────────────────
+async function exLoad(){
+  const dataset = document.getElementById("ex-ds-sel").value;
+  const day     = document.getElementById("ex-day-sel").value;
+  const btn     = document.getElementById("ex-load-btn");
+  const stat    = document.getElementById("ex-status");
+  btn.disabled  = true;
+  btn.textContent = "Loading…";
+  stat.textContent = "Fetching dataset…";
+  try{
+    const resp = await fetch(`/api/explore/data?dataset=${encodeURIComponent(dataset)}&day=${encodeURIComponent(day)}`);
+    const json = await resp.json();
+    if(json.error){ stat.textContent = "Error: "+json.error; return; }
+    EX.data      = json;
+    EX.indicators = [];
+    EX.nextId    = 0;
+    EX.tickIdx   = 0;
+    const prods  = json.products || [];
+    EX.prod      = prods[0] || null;
+    stat.textContent = `Loaded ${json.file} — ${prods.length} products, ${Object.values(json.tick_counts||{})[0]||0} ticks.`;
+    // Populate base product selector (for options calcs)
+    const bsel = document.getElementById("ex-base-prod-sel");
+    bsel.innerHTML = prods.map(p=>`<option value="${p}">${p}</option>`).join("");
+    // Prefer VEV as default for options
+    const vev = prods.find(p=>p.includes("VELVET"));
+    if(vev) bsel.value = vev;
+    document.getElementById("texpl-main").style.display = "";
+    exRenderProdPills();
+    exUpdateIndForm();
+    exRenderCharts();
+    exRenderValGrid();
+    exRenderIndList();
+    simShow();
+  }catch(e){
+    stat.textContent = "Load failed: "+e;
+  }finally{
+    btn.disabled = false;
+    btn.textContent = "▶ Load Data";
+  }
+}
+
+// ── Product pills ────────────────────────────────────────────────────────────
+function exRenderProdPills(){
+  const prods = EX.data?.products || [];
+  document.getElementById("ex-prod-row").innerHTML = prods.map(p=>
+    `<button class="ex-prod-pill${EX.prod===p?" on":""}" onclick="exSelProd('${p}')">${p.replace(/_/g," ")}</button>`
+  ).join("");
+  document.getElementById("ex-chart-prod").textContent = EX.prod || "—";
+}
+function exSelProd(p){ EX.prod=p; EX.tickIdx=0; exRenderProdPills(); exRenderCharts(); exRenderValGrid(); }
+
+// ── Tick scrubber ────────────────────────────────────────────────────────────
+function exOnTick(idx){
+  EX.tickIdx = idx;
+  exUpdateTickMarker();
+  exRenderValGrid();
+}
+function exUpdateTickMarker(){
+  const ticks = EX.data?.data?.[EX.prod] || [];
+  const n = ticks.length;
+  const sl = document.getElementById("ex-tick-sl");
+  sl.max   = Math.max(0, n-1);
+  sl.value = EX.tickIdx;
+  const t  = ticks[EX.tickIdx];
+  document.getElementById("ex-tick-info").textContent = `${EX.tickIdx+1} / ${n}  TS:${t?.ts??0}`;
+  // Update vertical line on chart
+  if(EX.priceChart){
+    try{
+      Plotly.relayout("ex-price-chart",{"shapes[0].x0": EX.tickIdx, "shapes[0].x1": EX.tickIdx});
+    }catch(_){}
+  }
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// INDICATOR MATH (all computed client-side over the raw tick array)
+// ═════════════════════════════════════════════════════════════════════════════
+
+function normCDF(x){
+  if(x<0) return 1-normCDF(-x);
+  const t=1/(1+0.2316419*x);
+  const p=t*(0.31938153+t*(-0.356563782+t*(1.781477937+t*(-1.821255978+t*1.330274429))));
+  return 1-(1/Math.sqrt(2*Math.PI))*Math.exp(-0.5*x*x)*p;
+}
+function bsCall(S,K,T,sig){
+  if(T<=0||sig<=0||S<=0) return Math.max(0,S-K);
+  try{
+    const d1=(Math.log(S/K)+0.5*sig*sig*T)/(sig*Math.sqrt(T));
+    const d2=d1-sig*Math.sqrt(T);
+    return S*normCDF(d1)-K*normCDF(d2);
+  }catch(e){ return Math.max(0,S-K); }
+}
+function bsDelta(S,K,T,sig){
+  if(T<=0||sig<=0) return S>K?1:0;
+  try{
+    const d1=(Math.log(S/K)+0.5*sig*sig*T)/(sig*Math.sqrt(T));
+    return normCDF(d1);
+  }catch(e){ return S>K?1:0; }
+}
+function bsGamma(S,K,T,sig){
+  if(T<=0||sig<=0||S<=0) return 0;
+  try{
+    const d1=(Math.log(S/K)+0.5*sig*sig*T)/(sig*Math.sqrt(T));
+    const phi=(1/Math.sqrt(2*Math.PI))*Math.exp(-0.5*d1*d1);
+    return phi/(S*sig*Math.sqrt(T));
+  }catch(e){ return 0; }
+}
+function bsVega(S,K,T,sig){
+  if(T<=0||sig<=0||S<=0) return 0;
+  try{
+    const d1=(Math.log(S/K)+0.5*sig*sig*T)/(sig*Math.sqrt(T));
+    const phi=(1/Math.sqrt(2*Math.PI))*Math.exp(-0.5*d1*d1);
+    return S*phi*Math.sqrt(T)/100; // per 1% vol change
+  }catch(e){ return 0; }
+}
+function bsTheta(S,K,T,sig){
+  if(T<=0||sig<=0||S<=0) return 0;
+  try{
+    const d1=(Math.log(S/K)+0.5*sig*sig*T)/(sig*Math.sqrt(T));
+    const d2=d1-sig*Math.sqrt(T);
+    const phi=(1/Math.sqrt(2*Math.PI))*Math.exp(-0.5*d1*d1);
+    return -(S*phi*sig/(2*Math.sqrt(T)))/365;
+  }catch(e){ return 0; }
+}
+function impliedVol(S,K,T,mkt){
+  const intr=Math.max(0,S-K);
+  if(mkt<=intr+0.01||T<=0.001) return null;
+  let lo=1e-8, hi=5;
+  for(let i=0;i<80;i++){
+    const mid=0.5*(lo+hi);
+    bsCall(S,K,T,mid)<mkt ? lo=mid : hi=mid;
+    if(hi-lo<1e-7) break;
+  }
+  const r=0.5*(lo+hi);
+  return (r>0&&r<3)?r:null;
+}
+
+function computeIndicator(type, params, ticks, spotTicks, sigmaEMA0){
+  // ticks: array of {ts,bp1,bv1,ap1,av1,...,mid} for selected product
+  // spotTicks: VEV spot ticks (same length, for options)
+  const n = ticks.length;
+  const mids = ticks.map(t=>t.mid);
+  let sigEma = sigmaEMA0 || 0.01174;
+  const T_INIT = parseFloat(params.t_init??9);
+
+  switch(type){
+    case "sma":{
+      const w=parseInt(params.window||20);
+      return mids.map((_,i)=>{
+        if(i<w-1) return null;
+        const sl=mids.slice(i-w+1,i+1);
+        return sl.reduce((a,b)=>a+b,0)/w;
+      });
+    }
+    case "ema":{
+      const w=parseInt(params.window||20);
+      const a=2/(w+1);
+      let prev=null;
+      return mids.map(m=>{
+        if(m===null||m===0) return null;
+        prev = prev===null ? m : a*m+(1-a)*prev;
+        return prev;
+      });
+    }
+    case "wma":{
+      const w=parseInt(params.window||20);
+      return mids.map((_,i)=>{
+        if(i<w-1) return null;
+        const sl=mids.slice(i-w+1,i+1);
+        let num=0,den=0;
+        sl.forEach((v,j)=>{const wt=j+1; num+=v*wt; den+=wt;});
+        return den>0?num/den:null;
+      });
+    }
+    case "dema":{
+      const w=parseInt(params.window||20);
+      const a=2/(w+1);
+      let e1=null, e2=null;
+      return mids.map(m=>{
+        if(!m) return null;
+        e1 = e1===null?m:a*m+(1-a)*e1;
+        e2 = e2===null?e1:a*e1+(1-a)*e2;
+        return 2*e1-e2;
+      });
+    }
+    case "vwap":{
+      // VWAP over rolling window using L1 volume
+      const w=parseInt(params.window||50);
+      return ticks.map((_,i)=>{
+        const sl=ticks.slice(Math.max(0,i-w+1),i+1);
+        let pv=0,vol=0;
+        sl.forEach(t=>{
+          const v=t.bv1+t.av1;
+          pv+=t.mid*v; vol+=v;
+        });
+        return vol>0?pv/vol:null;
+      });
+    }
+    case "bollup":
+    case "bolllo":
+    case "bbw":{
+      const w=parseInt(params.window||20);
+      const k=parseFloat(params.mult||2);
+      return mids.map((_,i)=>{
+        if(i<w-1) return null;
+        const sl=mids.slice(i-w+1,i+1);
+        const mu=sl.reduce((a,b)=>a+b,0)/w;
+        const std=Math.sqrt(sl.reduce((a,b)=>a+(b-mu)**2,0)/w);
+        if(type==="bollup") return mu+k*std;
+        if(type==="bolllo") return mu-k*std;
+        return mu>0?(2*k*std/mu)*100:null; // BBW as %
+      });
+    }
+    case "zscore":{
+      const w=parseInt(params.window||30);
+      return mids.map((_,i)=>{
+        if(i<w-1) return null;
+        const sl=mids.slice(i-w+1,i+1);
+        const mu=sl.reduce((a,b)=>a+b,0)/w;
+        const std=Math.sqrt(sl.reduce((a,b)=>a+(b-mu)**2,0)/w);
+        return std>1e-9?(mids[i]-mu)/std:0;
+      });
+    }
+    case "rsi":{
+      const w=parseInt(params.window||14);
+      let gains=[], losses=[];
+      return mids.map((m,i)=>{
+        if(i===0) return null;
+        const d=m-mids[i-1];
+        gains.push(d>0?d:0); losses.push(d<0?-d:0);
+        if(gains.length>w){gains.shift();losses.shift();}
+        if(gains.length<w) return null;
+        const ag=gains.reduce((a,b)=>a+b,0)/w;
+        const al=losses.reduce((a,b)=>a+b,0)/w;
+        return al===0?100:100-100/(1+ag/al);
+      });
+    }
+    case "roc":{
+      const w=parseInt(params.window||10);
+      return mids.map((_,i)=>{
+        if(i<w) return null;
+        const base=mids[i-w];
+        return base>0?((mids[i]-base)/base)*100:null;
+      });
+    }
+    case "rangepos":{
+      const w=parseInt(params.window||30);
+      return mids.map((_,i)=>{
+        if(i<w-1) return null;
+        const sl=mids.slice(i-w+1,i+1);
+        const lo=Math.min(...sl), hi=Math.max(...sl);
+        return hi>lo?(mids[i]-lo)/(hi-lo):0.5;
+      });
+    }
+    case "momentum":{
+      const w=parseInt(params.window||5);
+      return mids.map((_,i)=>{
+        if(i<w) return null;
+        return mids[i]-mids[i-w];
+      });
+    }
+    case "spread":{
+      return ticks.map(t=>(t.ap1>0&&t.bp1>0)?t.ap1-t.bp1:null);
+    }
+    case "microprice":{
+      return ticks.map(t=>{
+        const tot=t.bv1+t.av1;
+        if(tot>0&&t.bp1>0&&t.ap1>0) return (t.ap1*t.bv1+t.bp1*t.av1)/tot;
+        return t.mid||null;
+      });
+    }
+    case "pressure":{
+      return ticks.map(t=>{
+        const tot=t.bv1+t.bv2+t.bv3+t.av1+t.av2+t.av3;
+        return tot>0?(t.av1+t.av2+t.av3)/tot:0.5;
+      });
+    }
+    case "obimbalance":{
+      // (bidVol - askVol) / (bidVol + askVol)
+      return ticks.map(t=>{
+        const bid=t.bv1, ask=t.av1, tot=bid+ask;
+        return tot>0?(bid-ask)/tot:0;
+      });
+    }
+    case "bs_price":
+    case "bs_delta":
+    case "bs_gamma":
+    case "bs_vega":
+    case "bs_theta":{
+      const K=parseFloat(params.strike||5000);
+      const sigFixed=parseFloat(params.sigma??0.01174);
+      const useFixed=!!params.sigma;
+      let sigEmaLocal=sigFixed;
+      return ticks.map((t,i)=>{
+        const S=spotTicks[i]?.mid||0;
+        const tsVal=t.ts||0;
+        const T=Math.max(0.001, T_INIT - tsVal/1_000_000);
+        if(!useFixed){
+          // Update sigma EMA from strike ticks
+          const midK=t.mid;
+          if(S>0&&midK>0){
+            const iv=impliedVol(S,K,T,midK);
+            if(iv) sigEmaLocal=Math.max(0.005,Math.min(0.15,0.05*iv+0.95*sigEmaLocal));
+          }
+        }
+        const sig=sigEmaLocal;
+        if(S<=0) return null;
+        if(type==="bs_price")  return bsCall(S,K,T,sig);
+        if(type==="bs_delta")  return bsDelta(S,K,T,sig);
+        if(type==="bs_gamma")  return bsGamma(S,K,T,sig);
+        if(type==="bs_vega")   return bsVega(S,K,T,sig);
+        if(type==="bs_theta")  return bsTheta(S,K,T,sig);
+      });
+    }
+    case "impl_vol":{
+      const K=parseFloat(params.strike||5000);
+      return ticks.map((t,i)=>{
+        const S=spotTicks[i]?.mid||0;
+        const T=Math.max(0.001,T_INIT-t.ts/1_000_000);
+        const mkt=t.mid;
+        if(S<=0||mkt<=0) return null;
+        return impliedVol(S,K,T,mkt);
+      });
+    }
+    case "sigma_ema":{
+      const alpha=parseFloat(params.alpha||0.05);
+      const initSig=parseFloat(params.sigma_init||0.01174);
+      const strikes=(params.strikes||"5300,5400,5500").split(",").map(Number).filter(Boolean);
+      let sigEmaLocal=initSig;
+      return ticks.map((t,i)=>{
+        const S=spotTicks[i]?.mid||0;
+        const T=Math.max(0.001,T_INIT-t.ts/1_000_000);
+        if(S>0){
+          const ivs=[];
+          for(const K of strikes){
+            // Try to find the strike product in EX.data
+            const kProd=Object.keys(EX.data.data||{}).find(p=>p.includes("VEV_"+K));
+            if(kProd){
+              const kt=EX.data.data[kProd][i];
+              if(kt&&kt.mid>0){
+                const iv=impliedVol(S,K,T,kt.mid);
+                if(iv) ivs.push(iv);
+              }
+            }
+          }
+          if(ivs.length){
+            const raw=ivs.reduce((a,b)=>a+b,0)/ivs.length;
+            sigEmaLocal=Math.max(0.005,Math.min(0.15,alpha*raw+(1-alpha)*sigEmaLocal));
+          }
+        }
+        return sigEmaLocal;
+      });
+    }
+    case "time_to_exp":{
+      return ticks.map(t=>Math.max(0, T_INIT - t.ts/1_000_000));
+    }
+    case "fair_spread":{
+      // BS fair minus mid price (edge/mispricing)
+      const K=parseFloat(params.strike||5000);
+      const sigFixed=parseFloat(params.sigma||0.01174);
+      return ticks.map((t,i)=>{
+        const S=spotTicks[i]?.mid||0;
+        const T=Math.max(0.001,T_INIT-t.ts/1_000_000);
+        const fair=bsCall(S,K,T,sigFixed);
+        return t.mid>0?fair-t.mid:null;
+      });
+    }
+    case "inv_skew":{
+      // Inventory skew multiplier assuming user inputs position
+      const pos=parseFloat(params.pos||0);
+      const lim=parseFloat(params.lim||100);
+      return ticks.map(()=>Math.max(0, 1 - Math.abs(pos/lim)));
+    }
+    case "custom_expr":{
+      // Safely evaluate a custom math expression over {mid, bp1, ap1, bv1, av1, spread, ts, i}
+      const expr = (params.expr||"mid").trim();
+      return ticks.map((t,i)=>{
+        try{
+          const {mid,bp1,ap1,bv1,av1,bp2,ap2,bv2,av2,bp3,ap3,bv3,av3,ts} = t;
+          const spread=(ap1>0&&bp1>0)?ap1-bp1:0;
+          const micro=(bv1+av1)>0?(ap1*bv1+bp1*av1)/(bv1+av1):mid;
+          // eslint-disable-next-line no-new-func
+          return (new Function("mid","bp1","ap1","bv1","av1","bp2","ap2","bv2","av2",
+            "bp3","ap3","bv3","av3","spread","micro","ts","i","Math",
+            `"use strict"; return (${expr});`))(
+              mid,bp1,ap1,bv1,av1,bp2,ap2,bv2,av2,bp3,ap3,bv3,av3,spread,micro,ts,i,Math);
+        }catch(e){ return null; }
+      });
+    }
+    default: return ticks.map(()=>null);
+  }
+}
+
+// Decide if an indicator should go on secondary (oscillator) chart
+function isSecondary(type){
+  return ["zscore","rsi","roc","rangepos","momentum","spread","pressure","obimbalance",
+          "bs_delta","bs_gamma","bs_vega","bs_theta","impl_vol","sigma_ema","time_to_exp",
+          "fair_spread","inv_skew","bbw","custom_expr"].includes(type);
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// INDICATOR FORM
+// ═════════════════════════════════════════════════════════════════════════════
+
+const EX_FORMS = {
+  // window-based
+  sma:       [{name:"window",label:"Window",type:"number",def:20,min:2,max:500}],
+  ema:       [{name:"window",label:"Window (α=2/n+1)",type:"number",def:20,min:2,max:500}],
+  wma:       [{name:"window",label:"Window",type:"number",def:20,min:2,max:500}],
+  dema:      [{name:"window",label:"Window",type:"number",def:20,min:2,max:500}],
+  vwap:      [{name:"window",label:"Window",type:"number",def:50,min:5,max:1000}],
+  bollup:    [{name:"window",label:"Window",type:"number",def:20,min:2,max:500},
+              {name:"mult",  label:"Std Mult (k)",type:"number",def:2,min:0.1,max:5,step:0.1}],
+  bolllo:    [{name:"window",label:"Window",type:"number",def:20,min:2,max:500},
+              {name:"mult",  label:"Std Mult (k)",type:"number",def:2,min:0.1,max:5,step:0.1}],
+  bbw:       [{name:"window",label:"Window",type:"number",def:20,min:2,max:500},
+              {name:"mult",  label:"Std Mult (k)",type:"number",def:2,min:0.1,max:5,step:0.1}],
+  zscore:    [{name:"window",label:"Lookback window",type:"number",def:30,min:5,max:500}],
+  rsi:       [{name:"window",label:"Period",type:"number",def:14,min:2,max:200}],
+  roc:       [{name:"window",label:"Lookback",type:"number",def:10,min:1,max:200}],
+  rangepos:  [{name:"window",label:"Window",type:"number",def:30,min:5,max:500}],
+  momentum:  [{name:"window",label:"Lag",type:"number",def:5,min:1,max:200}],
+  spread:    [],
+  microprice:[],
+  pressure:  [],
+  obimbalance:[],
+  time_to_exp:[{name:"t_init",label:"T_INIT (days)",type:"number",def:9,min:1,max:30}],
+  bs_price:  [{name:"strike",label:"Strike K",type:"number",def:5000,min:1000,max:10000},
+              {name:"sigma", label:"Sigma (0=auto EMA)",type:"number",def:0.01174,min:0.001,max:2,step:0.001},
+              {name:"t_init",label:"T_INIT",type:"number",def:9,min:1,max:30}],
+  bs_delta:  [{name:"strike",label:"Strike K",type:"number",def:5000,min:1000,max:10000},
+              {name:"sigma", label:"Sigma",type:"number",def:0.01174,min:0.001,max:2,step:0.001},
+              {name:"t_init",label:"T_INIT",type:"number",def:9,min:1,max:30}],
+  bs_gamma:  [{name:"strike",label:"Strike K",type:"number",def:5000,min:1000,max:10000},
+              {name:"sigma", label:"Sigma",type:"number",def:0.01174,min:0.001,max:2,step:0.001},
+              {name:"t_init",label:"T_INIT",type:"number",def:9,min:1,max:30}],
+  bs_vega:   [{name:"strike",label:"Strike K",type:"number",def:5000,min:1000,max:10000},
+              {name:"sigma", label:"Sigma",type:"number",def:0.01174,min:0.001,max:2,step:0.001},
+              {name:"t_init",label:"T_INIT",type:"number",def:9,min:1,max:30}],
+  bs_theta:  [{name:"strike",label:"Strike K",type:"number",def:5000,min:1000,max:10000},
+              {name:"sigma", label:"Sigma",type:"number",def:0.01174,min:0.001,max:2,step:0.001},
+              {name:"t_init",label:"T_INIT",type:"number",def:9,min:1,max:30}],
+  impl_vol:  [{name:"strike",label:"Strike K",type:"number",def:5000,min:1000,max:10000},
+              {name:"t_init",label:"T_INIT",type:"number",def:9,min:1,max:30}],
+  sigma_ema: [{name:"alpha",     label:"EMA Alpha",type:"number",def:0.05,min:0.001,max:1,step:0.001},
+              {name:"sigma_init",label:"Sigma init",type:"number",def:0.01174,min:0.0001,max:2,step:0.0001},
+              {name:"strikes",   label:"Strikes (csv)",type:"text",def:"5300,5400,5500"},
+              {name:"t_init",    label:"T_INIT",type:"number",def:9,min:1,max:30}],
+  fair_spread:[{name:"strike",  label:"Strike K",type:"number",def:5000,min:1000,max:10000},
+               {name:"sigma",   label:"Sigma",type:"number",def:0.01174,min:0.001,max:2,step:0.001},
+               {name:"t_init",  label:"T_INIT",type:"number",def:9,min:1,max:30}],
+  inv_skew:  [{name:"pos", label:"Position",type:"number",def:0,min:-200,max:200},
+              {name:"lim", label:"Limit",type:"number",def:100,min:1,max:500}],
+  custom_expr:[{name:"expr",label:"Expression (use mid,bp1,ap1,bv1,av1,spread,micro,ts,i,Math)",type:"text",def:"mid"}],
+};
+
+const EX_EQ = {
+  sma:        "SMA(n) = Σ(mid[i-n+1..i]) / n",
+  ema:        "EMA = α·mid + (1-α)·EMA_prev   α = 2/(n+1)",
+  wma:        "WMA = Σ(w·mid) / Σw   w = position in window",
+  dema:       "DEMA = 2·EMA₁ − EMA₂   (reduces lag vs EMA)",
+  vwap:       "VWAP = Σ(mid·vol) / Σvol   over rolling window",
+  bollup:     "Upper = SMA(n) + k·σ(n)",
+  bolllo:     "Lower = SMA(n) − k·σ(n)",
+  bbw:        "BBW = (Upper − Lower) / SMA × 100%",
+  zscore:     "Z = (mid − SMA(n)) / σ(n)   → +ve = overbought",
+  rsi:        "RSI = 100 − 100/(1 + AvgGain/AvgLoss)   [0–100]",
+  roc:        "ROC = (mid − mid[i−n]) / mid[i−n] × 100%",
+  rangepos:   "RangePos = (mid − min) / (max − min)   [0=low, 1=high]",
+  momentum:   "Momentum = mid[i] − mid[i−n]",
+  spread:     "Spread = ask₁ − bid₁   (raw ticks)",
+  microprice: "Micro = (ask·bidVol + bid·askVol) / (bidVol+askVol)",
+  pressure:   "Pressure = askVol / totalVol   (1=asks heavy)",
+  obimbalance:"OBI = (bidVol − askVol) / (bidVol + askVol)   [−1..+1]",
+  bs_price:   "C = S·N(d₁) − K·N(d₂)   d₁=(ln(S/K)+½σ²T)/(σ√T)",
+  bs_delta:   "Δ = N(d₁)   ∈ [0,1]",
+  bs_gamma:   "Γ = φ(d₁) / (S·σ·√T)",
+  bs_vega:    "ν = S·φ(d₁)·√T / 100   per 1% vol",
+  bs_theta:   "Θ = −S·φ(d₁)·σ/(2√T) / 365   per day",
+  impl_vol:   "IV : solve C(S,K,T,σ)=market price for σ (bisection)",
+  sigma_ema:  "σ_EMA = α·IV_raw + (1−α)·σ_prev   from ATM strikes",
+  time_to_exp:"T = T_INIT − timestamp/1_000_000",
+  fair_spread:"Edge = BS_price(S,K,T,σ) − mid",
+  inv_skew:   "SkewMult = max(0, 1 − |pos/limit|)",
+  custom_expr:"eval(expr) per tick — full JS math, access mid/bp1/ap1/bv1/av1/spread/micro/ts/i/Math",
+};
+
+function exUpdateIndForm(){
+  const type = document.getElementById("ex-ind-type").value;
+  const fields = EX_FORMS[type] || [];
+  document.getElementById("ex-ind-params").innerHTML = fields.map(f=>`
+    <div class="texpl-bld-row">
+      <span class="texpl-bld-lbl">${f.label}</span>
+      ${f.type==="text"
+        ? `<input type="text" id="ex-p-${f.name}" value="${f.def}" style="flex:1;padding:4px 7px;border:1px solid var(--bdr2);border-radius:4px;font-size:12px"/>`
+        : `<input type="number" id="ex-p-${f.name}" value="${f.def}" min="${f.min??''}" max="${f.max??''}" step="${f.step??1}" style="flex:1;padding:4px 7px;border:1px solid var(--bdr2);border-radius:4px;font-size:12px"/>`
+      }
+    </div>`).join("");
+  const eq = EX_EQ[type] || "";
+  const eqBox = document.getElementById("ex-eq-box");
+  eqBox.textContent = eq;
+  eqBox.style.display = eq ? "" : "none";
+  document.getElementById("ex-add-err").textContent = "";
+}
+
+function exAddIndicator(){
+  if(!EX.data){ document.getElementById("ex-add-err").textContent="Load a dataset first."; return; }
+  const type = document.getElementById("ex-ind-type").value;
+  const fields = EX_FORMS[type] || [];
+  const params = {};
+  for(const f of fields){
+    const el = document.getElementById(`ex-p-${f.name}`);
+    params[f.name] = f.type==="text" ? el.value : parseFloat(el.value);
+  }
+  // Build label
+  const names = {
+    sma:"SMA",ema:"EMA",wma:"WMA",dema:"DEMA",vwap:"VWAP",
+    bollup:"Boll↑",bolllo:"Boll↓",bbw:"BBW",
+    zscore:"Z-Score",rsi:"RSI",roc:"ROC",rangepos:"RangePos",momentum:"Mom",
+    spread:"Spread",microprice:"Microprice",pressure:"Pressure",obimbalance:"OBI",
+    bs_price:"BS Price",bs_delta:"Δ Delta",bs_gamma:"Γ Gamma",bs_vega:"ν Vega",bs_theta:"Θ Theta",
+    impl_vol:"Impl.Vol",sigma_ema:"σ EMA",time_to_exp:"T(exp)",
+    fair_spread:"Fair Edge",inv_skew:"InvSkew",custom_expr:"Custom",
+  };
+  const shortLabel = names[type]||type;
+  const suffix = params.window ? `(${params.window})` : params.strike ? `K${params.strike}` : "";
+  const label = `${shortLabel}${suffix}`;
+  const color = EX_COLORS[EX.nextId % EX_COLORS.length];
+  EX.indicators.push({
+    id: EX.nextId++, type, label, params, color,
+    secondary: isSecondary(type),
+  });
+  document.getElementById("ex-add-err").textContent = "";
+  exRenderCharts();
+  exRenderValGrid();
+  exRenderIndList();
+  simUpdateIndRef();
+}
+
+function exRemoveIndicator(id){
+  EX.indicators = EX.indicators.filter(ind=>ind.id!==id);
+  exRenderCharts();
+  exRenderValGrid();
+  exRenderIndList();
+  simUpdateIndRef();
+}
+
+function exRenderIndList(){
+  const list = document.getElementById("ex-ind-list");
+  const hdr  = document.getElementById("ex-active-hdr");
+  if(!EX.indicators.length){ list.innerHTML=""; hdr.style.display="none"; return; }
+  hdr.style.display="";
+  const ticks = EX.data?.data?.[EX.prod] || [];
+  list.innerHTML = EX.indicators.map(ind=>{
+    const vals = ind._cache || [];
+    const v    = vals[EX.tickIdx];
+    const disp = (v!=null&&!isNaN(v)) ? v.toFixed(4) : "—";
+    return `<div class="ex-fml-item">
+      <div class="ex-fml-dot" style="background:${ind.color}"></div>
+      <div class="ex-fml-name" title="${ind.label}">${ind.label}</div>
+      <div class="ex-fml-val">${disp}</div>
+      <button class="ex-fml-rm" onclick="exRemoveIndicator(${ind.id})">&times;</button>
+    </div>`;
+  }).join("");
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// CHART RENDERING
+// ═════════════════════════════════════════════════════════════════════════════
+
+function exGetSpotTicks(){
+  // Return VEV ticks aligned with current product ticks
+  const prod = EX.prod;
+  const ticks = EX.data?.data?.[prod] || [];
+  const baseProd = document.getElementById("ex-base-prod-sel")?.value || "";
+  const spotData = EX.data?.data?.[baseProd] || ticks; // fallback to self
+  // Align by index (same length assumed since same dataset/day)
+  return spotData.length === ticks.length ? spotData : ticks;
+}
+
+function exRenderCharts(){
+  if(!EX.data || !EX.prod) return;
+  const ticks = EX.data.data[EX.prod] || [];
+  if(!ticks.length) return;
+
+  const xs   = ticks.map((_,i)=>i);
+  const spot  = exGetSpotTicks();
+
+  // Compute + cache all indicators
+  for(const ind of EX.indicators){
+    ind._cache = computeIndicator(ind.type, ind.params, ticks, spot, 0.01174);
+  }
+
+  const mids  = ticks.map(t=>t.mid||null);
+  const bids  = ticks.map(t=>t.bp1>0?t.bp1:null);
+  const asks  = ticks.map(t=>t.ap1>0?t.ap1:null);
+
+  const priceInds  = EX.indicators.filter(i=>!i.secondary);
+  const secInds    = EX.indicators.filter(i=>i.secondary);
+
+  // ── Price chart ────────────────────────────────────────────────────────────
+  const priceTraces = [
+    {x:xs, y:asks, name:"Ask", mode:"lines", line:{color:"#cf222e",width:1.2,dash:"dot"}, connectgaps:false},
+    {x:xs, y:mids, name:"Mid", mode:"lines", line:{color:"#333",width:1.8}, connectgaps:false},
+    {x:xs, y:bids, name:"Bid", mode:"lines", line:{color:"#1a7f37",width:1.2,dash:"dot"}, connectgaps:false},
+  ];
+  for(const ind of priceInds){
+    priceTraces.push({
+      x:xs, y:ind._cache, name:ind.label, mode:"lines",
+      line:{color:ind.color,width:2}, connectgaps:false,
+    });
+  }
+
+  const tickMarkerShape = [{
+    type:"line", x0:EX.tickIdx, x1:EX.tickIdx,
+    y0:0, y1:1, yref:"paper",
+    line:{color:"rgba(5,80,174,0.5)",width:1.5,dash:"dot"},
+  }];
+
+  const tickLabels = ticks.map((t,i)=> i%Math.max(1,Math.floor(ticks.length/8))===0 ? `${t.ts}` : "");
+
+  Plotly.react("ex-price-chart", priceTraces, {
+    ...{paper_bgcolor:"#fff",plot_bgcolor:"#fff",
+      font:{family:"Segoe UI,system-ui,sans-serif",size:10,color:"#57606a"},
+      margin:{t:8,r:14,b:36,l:70},
+      xaxis:{gridcolor:"#f0f2f5",linecolor:"#e1e4e8",zeroline:false,tickfont:{size:9},
+             title:{text:"Tick index",font:{size:9}},
+             tickvals:ticks.map((_,i)=>i).filter((_,i)=>i%Math.max(1,Math.floor(ticks.length/8))===0),
+             ticktext:tickLabels.filter(t=>t)},
+      yaxis:{gridcolor:"#f0f2f5",linecolor:"#e1e4e8",zeroline:false,tickfont:{size:9},
+             title:{text:"Price",font:{size:9}}},
+      hovermode:"x unified",showlegend:true,
+      legend:{orientation:"h",y:-0.15,font:{size:9}},
+      shapes: tickMarkerShape,
+    }
+  },{responsive:true});
+  EX.priceChart = true;
+
+  // Scrubber click support (click on chart updates tick)
+  const pcEl = document.getElementById("ex-price-chart");
+  pcEl.removeEventListener("plotly_click", pcEl._exClick||null);
+  pcEl._exClick = function(d){ if(d.points?.[0]) exOnTick(Math.round(d.points[0].x)); };
+  pcEl.on("plotly_click", pcEl._exClick);
+
+  // ── Secondary chart ────────────────────────────────────────────────────────
+  const secWrap = document.getElementById("ex-sec-wrap");
+  if(secInds.length){
+    secWrap.style.display="";
+    const secTraces = secInds.map(ind=>({
+      x:xs, y:ind._cache, name:ind.label, mode:"lines",
+      line:{color:ind.color,width:2}, connectgaps:false,
+    }));
+    // Zero line for oscillators
+    secTraces.push({
+      x:[0, xs.length-1], y:[0,0], name:"Zero",
+      mode:"lines", line:{color:"#ccc",width:1,dash:"dot"}, showlegend:false,
+    });
+
+    const ttls = [...new Set(secInds.map(i=>i.label))].join(", ");
+    document.getElementById("ex-sec-ttl").textContent = ttls;
+
+    Plotly.react("ex-sec-chart", secTraces, {
+      paper_bgcolor:"#fff",plot_bgcolor:"#fff",
+      font:{family:"Segoe UI,system-ui,sans-serif",size:10,color:"#57606a"},
+      margin:{t:8,r:14,b:36,l:70},
+      xaxis:{gridcolor:"#f0f2f5",linecolor:"#e1e4e8",zeroline:false,tickfont:{size:9}},
+      yaxis:{gridcolor:"#f0f2f5",linecolor:"#e1e4e8",zeroline:false,tickfont:{size:9}},
+      hovermode:"x unified",showlegend:true,
+      legend:{orientation:"h",y:-0.25,font:{size:9}},
+      shapes: tickMarkerShape,
+    },{responsive:true});
+    EX.secChart = true;
+
+    const scEl = document.getElementById("ex-sec-chart");
+    scEl.removeEventListener("plotly_click", scEl._exClick||null);
+    scEl._exClick = function(d){ if(d.points?.[0]) exOnTick(Math.round(d.points[0].x)); };
+    scEl.on("plotly_click", scEl._exClick);
+  } else {
+    secWrap.style.display="none";
+    EX.secChart = false;
+  }
+
+  // Update tick scrubber
+  exUpdateTickMarker();
+}
+
+// ── Live value grid at current tick ─────────────────────────────────────────
+function exRenderValGrid(){
+  if(!EX.data||!EX.prod) return;
+  const ticks = EX.data.data[EX.prod] || [];
+  const t     = ticks[EX.tickIdx] || {};
+  const spot  = exGetSpotTicks()[EX.tickIdx] || {};
+
+  const spread = (t.ap1>0&&t.bp1>0) ? (t.ap1-t.bp1).toFixed(2) : "—";
+  const tot    = t.bv1+t.av1;
+  const micro  = tot>0&&t.bp1>0&&t.ap1>0 ? ((t.ap1*t.bv1+t.bp1*t.av1)/tot).toFixed(4) : "—";
+  const press  = (t.bv1+t.bv2+t.bv3+t.av1+t.av2+t.av3)>0
+    ? (((t.av1+t.av2+t.av3)/(t.bv1+t.bv2+t.bv3+t.av1+t.av2+t.av3))*100).toFixed(1)+"%"
+    : "—";
+
+  const base = [
+    {l:"Mid",     v: t.mid?.toFixed(4)||"—"},
+    {l:"Best Bid",v: t.bp1>0?`${t.bp1} ×${t.bv1}`:"—"},
+    {l:"Best Ask",v: t.ap1>0?`${t.ap1} ×${t.av1}`:"—"},
+    {l:"Spread",  v: spread},
+    {l:"Microprice",v: micro},
+    {l:"Pressure",v: press},
+    {l:"Timestamp",v: t.ts||"—"},
+    {l:"PnL",     v: t.pnl?.toFixed(2)||"—"},
+  ];
+
+  // Add indicator live values
+  const indCells = EX.indicators.map(ind=>{
+    const v = ind._cache?.[EX.tickIdx];
+    return {l:ind.label, v:(v!=null&&!isNaN(v))?v.toFixed(4):"—", color:ind.color};
+  });
+
+  const cells = [...base, ...indCells];
+  document.getElementById("ex-vals-grid").innerHTML = cells.map(c=>`
+    <div class="ex-val-cell">
+      <div class="ex-val-lbl">${c.l}</div>
+      <div class="ex-val-v" style="${c.color?`color:${c.color}`:''}">` +
+        (c.v||"—") + `</div>
+    </div>`).join("");
+
+  // Also update indicator list values
+  exRenderIndList();
+
+  // Chart subtitle
+  document.getElementById("ex-chart-sub").textContent =
+    `TS: ${t.ts||0}  ·  ${EX.tickIdx+1}/${ticks.length} ticks`;
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// STRATEGY PNL SIMULATOR
+// ═════════════════════════════════════════════════════════════════════════════
+
+// ── Condition row state ───────────────────────────────────────────────────────
+// SIM_CONDS[side] = [{id, op:"OR"|"AND", expr:string}]
+const SIM_CONDS = { buy:[{id:0,op:"OR",expr:"micro < ema"}], sell:[{id:0,op:"OR",expr:"micro > ema"}], flat:[] };
+let SIM_COND_NEXT = 1;
+
+function simInitCondRows(){
+  ["buy","sell","flat"].forEach(side=>{
+    simRenderCondRows(side);
+  });
+}
+
+function simRenderCondRows(side){
+  const container = document.getElementById(`sim-${side}-rows`);
+  if(!container) return;
+  const rows = SIM_CONDS[side];
+  if(!rows.length){
+    container.innerHTML=`<div style="padding:8px 12px;font-size:11px;color:var(--mt);font-style:italic">No conditions — click "+ Add condition"</div>`;
+    return;
+  }
+  container.innerHTML = rows.map((row,idx)=>`
+    <div class="sim-cond-line" data-id="${row.id}">
+      ${idx===0
+        ? `<span style="font-size:10px;font-weight:700;color:var(--lbl);min-width:38px;text-align:center;font-family:var(--mono)">IF</span>`
+        : `<button class="sim-op-toggle ${row.op.toLowerCase()}" title="Click to toggle AND / OR"
+             onclick="simToggleOp('${side}',${row.id})">${row.op}</button>`
+      }
+      <input class="sim-cond-inp" value="${esc(row.expr)}"
+        placeholder="e.g. zscore &lt; -1.2"
+        oninput="simUpdateExpr('${side}',${row.id},this.value)"/>
+      ${rows.length>1||side==='flat'
+        ? `<button class="sim-cond-rm" onclick="simRemoveCondRow('${side}',${row.id})" title="Remove">&times;</button>`
+        : `<span style="width:20px"></span>`
+      }
+    </div>`).join("");
+}
+
+function simAddCondRow(side){
+  SIM_CONDS[side].push({id:SIM_COND_NEXT++, op:"OR", expr:""});
+  simRenderCondRows(side);
+  // Focus the new input
+  const inputs=document.querySelectorAll(`#sim-${side}-rows .sim-cond-inp`);
+  if(inputs.length) inputs[inputs.length-1].focus();
+}
+
+function simRemoveCondRow(side,id){
+  SIM_CONDS[side]=SIM_CONDS[side].filter(r=>r.id!==id);
+  simRenderCondRows(side);
+}
+
+function simToggleOp(side,id){
+  const row=SIM_CONDS[side].find(r=>r.id===id);
+  if(!row) return;
+  row.op = row.op==="OR" ? "AND" : "OR";
+  simRenderCondRows(side);
+}
+
+function simUpdateExpr(side,id,val){
+  const row=SIM_CONDS[side].find(r=>r.id===id);
+  if(row) row.expr=val;
+}
+
+// Join all rows for a side into a single JS boolean expression
+function simGetCondExpr(side){
+  const rows=SIM_CONDS[side].filter(r=>r.expr.trim());
+  if(!rows.length) return "";
+  return rows.map((r,i)=>{
+    const sub=`(${simNormalise(r.expr)})`;
+    if(i===0) return sub;
+    return (r.op==="AND" ? "&&" : "||") + " " + sub;
+  }).join(" ");
+}
+
+// Normalise natural-language operators → JS operators
+function simNormalise(expr){
+  return expr
+    .replace(/\band\b/gi,"&&")
+    .replace(/\bor\b/gi,"||")
+    .replace(/\bnot\b/gi,"!")
+    .replace(/\bmod\b/gi,"%")
+    .replace(/\babs\b/gi,"Math.abs")
+    .replace(/\bsqrt\b/gi,"Math.sqrt")
+    .replace(/\bmin\b/gi,"Math.min")
+    .replace(/\bmax\b/gi,"Math.max")
+    .replace(/\bfloor\b/gi,"Math.floor")
+    .replace(/\bceil\b/gi,"Math.ceil")
+    .replace(/\bround\b/gi,"Math.round");
+}
+
+// Show simulator section as soon as data is loaded
+function simShow(){
+  document.getElementById("sim-section").style.display="";
+  simInitCondRows();
+  simUpdateIndRef();
+}
+
+// Update variable reference panel with active indicator short names
+function simUpdateIndRef(){
+  const el=document.getElementById("sim-ind-ref");
+  if(!el) return;
+  if(!EX.indicators.length){ el.innerHTML='<span style="color:var(--mt);font-style:italic">Add indicators above first</span>'; return; }
+  el.innerHTML=EX.indicators.map(ind=>{
+    const varname=simIndVarName(ind);
+    return `<b style="color:${ind.color};font-family:var(--mono)">${varname}</b> — ${ind.label}`;
+  }).join("<br>");
+}
+
+// Derive a safe JS variable name from indicator label (e.g. "EMA(20)" → "ema")
+function simIndVarName(ind){
+  const base={
+    sma:"sma",ema:"ema",wma:"wma",dema:"dema",vwap:"vwap",
+    bollup:"bollup",bolllo:"bolllo",bbw:"bbw",
+    zscore:"zscore",rsi:"rsi",roc:"roc",rangepos:"rangepos",momentum:"mom",
+    spread:"spread_ind",microprice:"microprice",pressure:"pressure",obimbalance:"obi",
+    bs_price:"bs_price",bs_delta:"delta",bs_gamma:"gamma",bs_vega:"vega",bs_theta:"theta",
+    impl_vol:"iv",sigma_ema:"sigma",time_to_exp:"T",
+    fair_spread:"fair_edge",inv_skew:"inv_skew",custom_expr:"custom",
+  }[ind.type]||"ind";
+  // Append id to avoid collisions when multiple same-type indicators exist
+  const collision=EX.indicators.filter(x=>x.type===ind.type).length>1;
+  return collision ? `${base}_${ind.id}` : base;
+}
+
+// Preset strategies
+const SIM_PRESETS={
+  ema_cross:{
+    buy:"mid < ema",
+    sell:"mid > ema",
+    flat:"",
+    hint:"Requires: EMA indicator. Buy when price drops below EMA, sell when above."
+  },
+  micro_ema:{
+    buy:"micro < ema",
+    sell:"micro > ema",
+    flat:"",
+    hint:"Requires: EMA + Microprice indicators. Uses volume-weighted microprice vs EMA."
+  },
+  zscore_rev:{
+    buy:"zscore < -1.2",
+    sell:"zscore > 1.2",
+    flat:"Math.abs(zscore) < 0.3",
+    hint:"Requires: Z-Score indicator. Classic mean-reversion: buy oversold, sell overbought, flatten at mean."
+  },
+  boll_bounce:{
+    buy:"mid < bolllo",
+    sell:"mid > bollup",
+    flat:"mid > sma && mid < sma",
+    hint:"Requires: Bollinger Upper + Lower + SMA indicators. Fade the bands."
+  },
+  rsi_rev:{
+    buy:"rsi < 30",
+    sell:"rsi > 70",
+    flat:"rsi > 45 && rsi < 55",
+    hint:"Requires: RSI indicator. Classic oversold/overbought reversal."
+  },
+  spread_arb:{
+    buy:"spread_ind > 3 && pos < 0",
+    sell:"spread_ind > 3 && pos > 0",
+    flat:"spread_ind < 2",
+    hint:"Requires: Spread indicator. Trade when spread is wide (fade the spread)."
+  },
+  momentum_follow:{
+    buy:"mom > 0 && pos <= 0",
+    sell:"mom < 0 && pos >= 0",
+    flat:"mom === 0",
+    hint:"Requires: Momentum indicator. Follow price direction."
+  },
+  obimb:{
+    buy:"obi > 0.3",
+    sell:"obi < -0.3",
+    flat:"Math.abs(obi) < 0.1",
+    hint:"Requires: OB Imbalance indicator. Trade in direction of order book pressure."
+  },
+};
+
+function simApplyPreset(key){
+  const p=SIM_PRESETS[key];
+  if(!p) return;
+  // Split preset string on " or " / " and " → multiple rows
+  function parseRows(str){
+    if(!str) return [];
+    // Split on " or " first (OR between clauses), keep AND inside each clause
+    const parts=str.split(/\s+or\s+/i);
+    return parts.map((expr,i)=>({id:SIM_COND_NEXT++, op:"OR", expr:expr.trim()}));
+  }
+  SIM_CONDS.buy  = parseRows(p.buy).length  ? parseRows(p.buy)  : [{id:SIM_COND_NEXT++,op:"OR",expr:""}];
+  SIM_CONDS.sell = parseRows(p.sell).length ? parseRows(p.sell) : [{id:SIM_COND_NEXT++,op:"OR",expr:""}];
+  SIM_CONDS.flat = parseRows(p.flat||"");
+  ["buy","sell","flat"].forEach(simRenderCondRows);
+  document.getElementById("sim-err").textContent=p.hint||"";
+  document.getElementById("sim-err").style.color="var(--mt)";
+}
+
+document.getElementById("sim-size-mode").addEventListener("change",function(){
+  document.getElementById("sim-fixed-g").style.display=this.value==="fixed"?"":"none";
+});
+
+// ── Core simulation engine ───────────────────────────────────────────────────
+function simRun(){
+  const err=document.getElementById("sim-err");
+  err.textContent=""; err.style.color="var(--red)";
+
+  if(!EX.data||!EX.prod){ err.textContent="Load a dataset first."; return; }
+  const ticks=EX.data.data[EX.prod]||[];
+  if(!ticks.length){ err.textContent="No ticks for selected product."; return; }
+
+  // Ensure all indicators are computed
+  const spot=exGetSpotTicks();
+  for(const ind of EX.indicators){
+    if(!ind._cache||ind._cache.length!==ticks.length)
+      ind._cache=computeIndicator(ind.type,ind.params,ticks,spot,0.01174);
+  }
+
+  const buyCond  = simGetCondExpr("buy");
+  const sellCond = simGetCondExpr("sell");
+  const flatCond = simGetCondExpr("flat");
+  if(!buyCond&&!sellCond){ err.textContent="Enter at least one buy or sell condition."; return; }
+
+  const limit    = Math.max(1,parseInt(document.getElementById("sim-limit").value)||80);
+  const sizeMode = document.getElementById("sim-size-mode").value;
+  const fixedQty = Math.max(1,parseInt(document.getElementById("sim-fixed-qty").value)||10);
+  const fillMode = document.getElementById("sim-fill-mode").value;
+  const fee      = parseFloat(document.getElementById("sim-fee").value)||0;
+
+  // Build safe evaluator factory
+  // Indicator variables: each indicator maps to its varname
+  const indVarNames = EX.indicators.map(simIndVarName);
+
+  function makeEval(expr){
+    if(!expr) return ()=>false;
+    const safe = simNormalise(expr);
+    try{
+      return new Function(
+        "mid","bp1","ap1","bv1","av1","bp2","ap2","bv2","av2","bp3","ap3","bv3","av3",
+        "spread","micro","ts","i","pos","lim","pnl","Math",
+        ...indVarNames,
+        `"use strict"; try{ return !!(${safe}); }catch(e){ return false; }`
+      );
+    }catch(e){
+      err.textContent=`Syntax error in condition: ${e.message} → "${safe}"`;
+      return null;
+    }
+  }
+
+  const buyFn  = makeEval(buyCond);
+  const sellFn = makeEval(sellCond);
+  const flatFn = flatCond ? makeEval(flatCond) : null;
+  if(!buyFn||!sellFn){ err.textContent="Syntax error in condition. Check your expression."; return; }
+
+  // Simulation state
+  let pos=0, pnl=0, trades=0;
+  const pnlSeries=[], posSeries=[], buySignals=[], sellSignals=[], flatSignals=[];
+  const tickPnlChanges=[];
+
+  for(let i=0;i<ticks.length;i++){
+    const t=ticks[i];
+    const mid=t.mid||0;
+    if(!mid){ pnlSeries.push(pnl); posSeries.push(pos); continue; }
+
+    const spread=(t.ap1>0&&t.bp1>0)?t.ap1-t.bp1:0;
+    const tot=t.bv1+t.av1;
+    const micro=(tot>0&&t.bp1>0&&t.ap1>0)?(t.ap1*t.bv1+t.bp1*t.av1)/tot:mid;
+
+    // Fill price for this tick
+    const fillBuy  = fillMode==="ask"?(t.ap1||mid) : fillMode==="micro"?micro : mid;
+    const fillSell = fillMode==="ask"?(t.bp1||mid) : fillMode==="micro"?micro : mid;
+
+    // Gather indicator values
+    const indVals=EX.indicators.map(ind=>ind._cache?.[i]??null);
+
+    // Evaluate conditions
+    const args=[mid,t.bp1,t.ap1,t.bv1,t.av1,t.bp2,t.ap2,t.bv2,t.av2,t.bp3,t.ap3,t.bv3,t.av3,
+                spread,micro,t.ts,i,pos,limit,pnl,Math,...indVals];
+
+    let doFlat=false, doBuy=false, doSell=false;
+    try{ doFlat = flatFn ? flatFn(...args) : false; }catch(_){}
+    try{ doBuy  = buyFn(...args); }catch(_){}
+    try{ doSell = sellFn(...args); }catch(_){}
+
+    const prevPos=pos;
+
+    if(doFlat && pos!==0){
+      // Flatten: sell all longs, cover all shorts
+      const qty=Math.abs(pos);
+      const price=pos>0?fillSell:fillBuy;
+      pnl += pos>0 ? qty*(price-fee) : -qty*(price+fee);
+      // Unwind cost basis: simplified mark-to-market
+      pnl -= pos>0 ? qty*fillBuy : qty*fillSell; // approximate - will fix below with proper cost
+      pos=0; trades++;
+      flatSignals.push({x:i,y:mid});
+    } else {
+      // Determine target position
+      let target=pos;
+      if(doBuy && !doSell)  target= limit;
+      if(doSell && !doBuy)  target=-limit;
+
+      if(sizeMode==="half") target=Math.sign(target)*Math.floor(limit/2);
+      if(sizeMode==="frac"){
+        const rem=doBuy?limit-pos:limit+pos;
+        const step=Math.max(1,Math.floor(rem*0.3));
+        target=doBuy?Math.min(limit,pos+step):Math.max(-limit,pos-step);
+      }
+      if(sizeMode==="fixed"){
+        target=doBuy?Math.min(limit,pos+fixedQty):Math.max(-limit,pos-fixedQty);
+      }
+
+      const delta=target-pos;
+      if(delta>0){
+        // BUY delta units
+        const price=fillBuy+fee;
+        pnl -= delta*price;  // cash out
+        pos += delta;
+        if(delta) trades++;
+        buySignals.push({x:i,y:mid});
+      } else if(delta<0){
+        const qty=-delta;
+        const price=fillSell-fee;
+        pnl += qty*price;    // cash in
+        pos += delta;
+        if(qty) trades++;
+        sellSignals.push({x:i,y:mid});
+      }
+    }
+
+    // Mark-to-market: current position valued at mid
+    const mtm=pnl+pos*mid;
+    const prevMtm= i>0 ? (pnlSeries[i-1]) : 0;
+    tickPnlChanges.push(mtm-prevMtm);
+    pnlSeries.push(mtm);
+    posSeries.push(pos);
+  }
+
+  // Flatten any remaining position at last mid
+  const lastMid=ticks[ticks.length-1]?.mid||0;
+  const finalPnl=pnl+pos*lastMid;
+
+  // ── Statistics ───────────────────────────────────────────────────────────
+  const peak=pnlSeries.reduce((a,b)=>Math.max(a,b),0);
+  let maxDD=0, runPeak=pnlSeries[0]||0;
+  for(const v of pnlSeries){ runPeak=Math.max(runPeak,v); maxDD=Math.max(maxDD,runPeak-v); }
+  const winTicks=tickPnlChanges.filter(v=>v>0).length;
+  const winRate=tickPnlChanges.length>0?(winTicks/tickPnlChanges.length*100):0;
+  const mu=tickPnlChanges.reduce((a,b)=>a+b,0)/Math.max(1,tickPnlChanges.length);
+  const sigma2=tickPnlChanges.reduce((a,b)=>a+(b-mu)**2,0)/Math.max(1,tickPnlChanges.length);
+  const sd=Math.sqrt(sigma2);
+  const sharpe=sd>0?mu/sd:0;
+  const best=Math.max(...tickPnlChanges);
+  const worst=Math.min(...tickPnlChanges);
+  const avgPerTrade=trades>0?finalPnl/trades:0;
+
+  // ── Render stats ─────────────────────────────────────────────────────────
+  function fmt(v,dec=1){ return (v>=0?"+":"")+v.toFixed(dec); }
+  function setstat(id,val,pos2){ const el=document.getElementById(id); el.textContent=val; el.style.color=pos2===true?"var(--green)":pos2===false?"var(--red)":"var(--tx)"; }
+  setstat("ss-pnl",  fmt(finalPnl,2), finalPnl>=0);
+  setstat("ss-sharpe",sharpe.toFixed(3), sharpe>0);
+  setstat("ss-dd",   "-"+maxDD.toFixed(2), false);
+  setstat("ss-wr",   winRate.toFixed(1)+"%", winRate>50);
+  setstat("ss-trades",trades.toString());
+  setstat("ss-avg",  fmt(avgPerTrade,2), avgPerTrade>=0);
+  setstat("ss-best", fmt(best,2), true);
+  setstat("ss-worst",fmt(worst,2), false);
+  document.getElementById("sim-stats").style.display="";
+
+  // ── Render charts ─────────────────────────────────────────────────────────
+  const xs=ticks.map((_,i2)=>i2);
+  const PL2={paper_bgcolor:"#fff",plot_bgcolor:"#fff",
+    font:{family:"Segoe UI,system-ui,sans-serif",size:10,color:"#57606a"},
+    margin:{t:8,r:14,b:32,l:68},
+    xaxis:{gridcolor:"#f0f2f5",linecolor:"#e1e4e8",zeroline:false,tickfont:{size:9}},
+    yaxis:{gridcolor:"#f0f2f5",linecolor:"#e1e4e8",zeroline:false,tickfont:{size:9}},
+    hovermode:"x unified",showlegend:false};
+
+  // PnL chart
+  Plotly.react("sim-pnl-chart",[
+    {x:xs,y:pnlSeries,mode:"lines",name:"PnL",
+     line:{color:finalPnl>=0?"#1a7f37":"#cf222e",width:2},fill:"tozeroy",
+     fillcolor:finalPnl>=0?"rgba(26,127,55,.08)":"rgba(207,34,46,.08)"},
+    {x:xs,y:xs.map(()=>0),mode:"lines",line:{color:"#ccc",width:1,dash:"dot"},showlegend:false},
+  ],{...PL2,yaxis:{...PL2.yaxis,title:{text:"MTM PnL",font:{size:9}}}},{responsive:true});
+
+  // Position chart
+  const posColor=pnlSeries[pnlSeries.length-1]>=0?"#0550ae":"#cf222e";
+  Plotly.react("sim-pos-chart",[
+    {x:xs,y:posSeries,mode:"lines",name:"Position",
+     line:{color:posColor,width:1.5},fill:"tozeroy",fillcolor:"rgba(5,80,174,.07)"},
+    {x:xs,y:xs.map(()=>limit), mode:"lines",line:{color:"#ccc",width:1,dash:"dot"},showlegend:false},
+    {x:xs,y:xs.map(()=>-limit),mode:"lines",line:{color:"#ccc",width:1,dash:"dot"},showlegend:false},
+  ],{...PL2,yaxis:{...PL2.yaxis,title:{text:"Position",font:{size:9}}}},{responsive:true});
+
+  // Signal chart: price + buy/sell markers + first indicator overlay
+  const mids=ticks.map(t=>t.mid||null);
+  const sigTraces=[
+    {x:xs,y:mids,mode:"lines",name:"Mid",line:{color:"#333",width:1.5},connectgaps:false},
+  ];
+  // Overlay first price-type indicator (SMA/EMA etc.) if present
+  const priceInd=EX.indicators.find(i2=>!i2.secondary);
+  if(priceInd) sigTraces.push({
+    x:xs,y:priceInd._cache,name:priceInd.label,mode:"lines",
+    line:{color:priceInd.color,width:1.5,dash:"dot"},connectgaps:false,
+  });
+  if(buySignals.length) sigTraces.push({
+    x:buySignals.map(s=>s.x), y:buySignals.map(s=>s.y),
+    mode:"markers",name:"BUY",marker:{color:"#1f77b4",symbol:"triangle-up",size:7},
+  });
+  if(sellSignals.length) sigTraces.push({
+    x:sellSignals.map(s=>s.x),y:sellSignals.map(s=>s.y),
+    mode:"markers",name:"SELL",marker:{color:"#ff7f0e",symbol:"triangle-down",size:7},
+  });
+  if(flatSignals.length) sigTraces.push({
+    x:flatSignals.map(s=>s.x),y:flatSignals.map(s=>s.y),
+    mode:"markers",name:"FLAT",marker:{color:"#9467bd",symbol:"square",size:6},
+  });
+  Plotly.react("sim-sig-chart",sigTraces,{
+    ...PL2,showlegend:true,
+    legend:{orientation:"h",y:-0.2,font:{size:9}},
+    yaxis:{...PL2.yaxis,title:{text:"Price",font:{size:9}}},
+  },{responsive:true});
+
+  document.getElementById("sim-charts").style.display="";
+  document.getElementById("sim-err").textContent=
+    `Simulation complete — ${ticks.length} ticks, ${trades} trades, Final PnL: ${fmt(finalPnl,2)}`;
+  document.getElementById("sim-err").style.color="var(--mt)";
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TUNE ALGORITHM
